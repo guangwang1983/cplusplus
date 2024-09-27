@@ -1,0 +1,27 @@
+project KOTradeEngine 
+    : requirements
+      <include>/server/zodiac/include
+      <xdll-path>/server/zodiac/lib64
+      <library-path>/server/zodiac/lib64
+    ;
+
+# Specify which directories have subproject Jamfiles to execute.
+
+build-project base ;
+build-project EngineInfra ;
+build-project GridDataGenerator ;
+build-project Liquidator ;
+build-project SLBase ;
+build-project sl3lEqualWeight ;
+build-project slsl ;
+build-project OrderTest ;
+build-project DataPrinter ;
+
+exe KOTradeEngine : Main.cpp base EngineInfra GridDataGenerator Liquidator SLBase slsl sl3lEqualWeight OrderTest DataPrinter : <library>/site-config//velio_libs ;
+
+
+# Define installation rules for pre-build.
+
+install dist : KOTradeEngine : <variant>release:<location>../dist/bin/release <variant>debug:<location>../dist/bin/debug ;
+
+

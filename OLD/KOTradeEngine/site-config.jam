@@ -1,0 +1,54 @@
+# site-config.jam
+# site-config can contain all of the libraries defs for the site. The Velio
+# system doesn't currently define site-config, so project-tree libraries can
+# be defined here.
+#
+# @note  site config REQUIRES a symbolic link in the home directory or other
+#        BJAM search path to be detected.
+# @note  When "using" the project "site-config" (use-project stanza) the
+#        path to the site-config project will be the location of Jamroot and
+#        not the user's home or the location of the site-config.jam file.
+#
+# @ref   http://www.boost.org/build/tutorial.html
+# @ref   http://www.boost.org/build/doc/html/bbv2/overview/configuration.html
+# @ref   http://www.boost.org/build/doc/html/bbv2/recipies/site-config.html
+
+# Define site-config as a known project so that its libraries and aliases
+# can be added to other projects throughout the repository.
+
+project site-config ;
+
+# Installed libraries needed to access the Velio system.
+
+lib libbase : : <name>base <search>/server/zodiac/lib64 ;
+lib bz2 : : <link>shared ;
+lib pthread : : <link>shared ;
+lib lbm ;
+lib lbmsdm ;
+lib lbmutl ;
+lib rt : : <link>shared ;
+lib dl : : <link>shared ;
+lib xerces-c : : <link>shared ;
+lib z ;
+lib gsl ;
+lib gslcblas ;
+lib boost_program_options ;
+lib boost_date_time ;
+lib boost_system ;
+lib boost_filesystem ;
+lib boost_regex : : <link>shared ;
+lib ssl : : <link>shared ;
+lib crypto : : <link>shared ;
+lib mysqlcppconn : : <link>shared ;
+lib hdf5 : : <link>shared ;
+lib hdf5_hl : : <link>shared ;
+lib hdf5_cpp : : <link>shared ;
+lib stdc++ : : <link>static ;
+
+# Alias lists to avoid having to type out all of the libraries in each link command.
+
+alias lbm_libs : lbm lbmsdm lbmutl : : : <library>pthread <library>rt <library>dl ;
+alias velio_libs : libbase/<link>static xerces-c lbm_libs bz2 z gsl boost_system boost_filesystem gslcblas ssl crypto boost_regex mysqlcppconn hdf5 hdf5_hl boost_program_options boost_date_time hdf5_cpp ;
+
+exe KOTradeEngine : Main.cpp base EngineInfra GridDataGenerator Liquidator SLBase slsl sl3l sl3lEqualWeight OrderTest DataPrinter : <library>/site-config//velio_libs : <library>stdc++ ;
+

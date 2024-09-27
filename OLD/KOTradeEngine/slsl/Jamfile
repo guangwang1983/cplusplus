@@ -1,0 +1,20 @@
+# Jamfile for ft-taker sample application.
+# This sample application needs to be built within the source tree of its main project.
+
+# Use site-config project for project libs and alias definitions.
+
+#use-project ../site-config : ../ ;
+
+# Use nike-common project for shared code among examples.
+
+#use-project nike-common : ../common/ ;
+
+# Define ft-taker project and include paths.
+
+project slsl ;
+
+lib slsl
+    : [ glob *.cpp ]
+#    : <include>../
+    : <link>static
+    ;

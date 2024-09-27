@@ -1,0 +1,17 @@
+add_library(
+  base
+  STATIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/EXMA.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/FairValueExecution.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/HedgeOrder.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Instrument.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/IOCOrder.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/MultiProductPricingBase.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Product.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/QuoteOrder.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/SMA.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Stdev.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/SyntheticSpread.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/WABSPricing.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/WeightedStdev.cpp
+)

@@ -1,0 +1,12 @@
+project PositionServer ;
+
+lib boost_system ;
+lib boost_thread-mt ;
+lib pthread : : <link>shared ;
+lib rt ;
+
+exe PositionServer : [ glob *.cpp ] boost_system pthread boost_thread-mt rt ;
+
+install dist : PositionServer : <variant>release:<location>../dist/bin/release <variant>debug:<location>../dist/bin/debug ;
+
+
