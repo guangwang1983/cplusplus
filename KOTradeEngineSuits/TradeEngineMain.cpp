@@ -9,6 +9,7 @@
 #include <iostream>
 #include "EngineInfra/SchedulerConfig.h"
 #include "EngineInfra/QuickFixScheduler.h"
+#include "EngineInfra/KOScheduler.h"
 
 using namespace std;
 using namespace KO;
@@ -36,8 +37,6 @@ bool isKeyValue( const std::string& line )
 
 int main( int argc, char** argv )
 {
-    // TODO: add simulation code
-
     std::string sEngineMode = argv[1];
     std::string sConfigFilePath = argv[2];
     std::string sFixConfigFileName;        
@@ -119,6 +118,21 @@ int main( int argc, char** argv )
         }
 
         cFixSocketInitiator.stop();
+    }
+    else
+    {
+        SchedulerConfig cSchedulerConfig;
+        cSchedulerConfig.loadCfgFile(sConfigFilePath);
+
+        KOScheduler cKOScheduler(sEngineMode, cSchedulerConfig);
+        if(cKOScheduler.init())
+        {
+            cKOScheduler.run();
+        }
+        else
+        {
+            cerr << "Failed to initialised KO Scheduler. No simulation running.\n";
+        }
     }
     
     return 0;
