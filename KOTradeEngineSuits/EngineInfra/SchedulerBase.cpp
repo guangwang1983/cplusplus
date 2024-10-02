@@ -14,6 +14,7 @@
 #include "../slrl/SLRL.h"
 #include "../slrd/SLRD.h"
 #include "../DataPrinter/DataPrinter.h"
+#include "../DataRecorder/DataRecorder.h"
 
 #include <boost/math/special_functions/round.hpp>
 
@@ -545,6 +546,10 @@ void SchedulerBase::registerTradeEngines()
                 else if(sEngineType.compare("DataPrinter") == 0)
                 {
                     pNewTradeEngine.reset(new DataPrinter(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType));
+                }
+                else if(sEngineType.compare("DataRecorder") == 0)
+                {
+                    pNewTradeEngine.reset(new DataRecorder(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType));
                 }
                 else if(sEngineType.compare("SL3L") == 0)
                 {

@@ -6,7 +6,6 @@
 #include "KOEpochTime.h"
 #include "OrderParentInterface.h"
 #include <boost/shared_ptr.hpp>
-#include <framework/Order.h>
 #include "QuoteData.h"
 #include <deque>
 
@@ -27,18 +26,22 @@ public:
         PENDINGDELETE
     };
 
-    friend class HCScheduler;
-    friend class HCFXScheduler;
-    friend class HCFXSchedulerMultiBook;
+    friend class QuickFixScheduler;
     friend class KOScheduler;
     friend class SchedulerBase;
     friend class SimulationExchange;
 
-    KOOrder(unsigned long iOrderID, int iCID, HC::source_t iGatewayID, HC::instrumentkey_t iInstrumentKey, double dTickSize, bool bIsIOC, const string& sProduct, const string& sAccount, const string& sExchange, InstrumentType eInstrumentType, OrderParentInterface* pParent);
+    KOOrder(const string& iPendingOrderID, int iCID, double dTickSize, bool bIsIOC, const string& sProduct, const string& sAccount, const string& sExchange, InstrumentType eInstrumentType, OrderParentInterface* pParent);
 
     InstrumentType egetInstrumentType();
-    int igetOrderID();
+
     int igetProductCID();
+
+    const string& sgetPendingOrderID();
+    const string& sgetConfirmedOrderID();
+    const string& sgetTBOrderID();
+
+    long igetOrderOrgQty();
     long igetOrderRemainQty();
     double dgetOrderPrice();
     long igetOrderPriceInTicks();
@@ -46,27 +49,19 @@ public:
     const string& sgetOrderAccount();
     const string& sgetOrderProductName();
     const string& sgetOrderExchange();
-    void changeOrderstat(OrderState eNewOrderState);
-   
-    void setIsKOOrder(bool bIsKOOrder);
-
-    virtual void updateOrderRemainingQty();
-    virtual void updateOrderPrice();
-
+    OrderState egetOrderstate();
     bool borderCanBeChanged();
     
 protected:
-    Order* _pHCOrder;
-    OrderRouter* _pHCOrderRouter;
 
     InstrumentType _eInstrumentType;
 
-    HC::source_t _iGatewayID;
-    HC::instrumentkey_t _iInstrumentKey;
-
     OrderState _eOrderState;
 
-    unsigned long _iOrderID;
+    string _sPendingOrderID;
+    string _sConfirmedOrderID;
+    string _sTBOrderID;
+
     int _iCID;
     bool _bIsIOC;
     string _sProduct;
@@ -77,7 +72,8 @@ protected:
 
     KOEpochTime _cPendingRequestTime;
 
-    long _iOrderRemainingQty;
+    long _iOrderOrgQty;
+    long _iOrderRemainQty;
     double _dOrderPrice;
     long _iOrderPriceInTicks;
 
@@ -88,20 +84,6 @@ protected:
     bool _bOrderNoFillTriggered;
 
     std::deque<KOEpochTime> _qOrderMessageHistory;
-
-/******************* used in KO SIM ******************/
-    long _iOrderPendingQty;
-    double _dOrderPendingPrice;
-    long _iOrderPendingPriceInTicks;
-
-    long _iOrderConfirmedQty;
-    double _dOrderConfirmedPrice;
-    long _iOrderConfirmedPriceInTicks;
-
-    long _iQueuePosition;
-
-    bool _bIsKOOrder;
-/*****************************************************/
 };
 
 typedef boost::shared_ptr<KOOrder> KOOrderPtr;

@@ -42,6 +42,8 @@ QuickFixScheduler::QuickFixScheduler(SchedulerConfig &cfg, bool bIsLiveTrading)
     _bOrderSubmitted = false;
 
     _iTimeIndex = 0;
+
+    preCommonInit();
 }
 
 QuickFixScheduler::~QuickFixScheduler()
@@ -51,8 +53,6 @@ QuickFixScheduler::~QuickFixScheduler()
 
 void QuickFixScheduler::init()
 {
-    preCommonInit();
-
     for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
     {
         QuoteData* pNewQuoteDataPtr;
@@ -129,6 +129,8 @@ void QuickFixScheduler::init()
     _bMarketDataSubscribed = true;
 
     postCommonInit();
+
+    sortTimeEvent();
 }
 
 KOEpochTime QuickFixScheduler::cgetCurrentTime()
@@ -378,6 +380,16 @@ void QuickFixScheduler::assignPositionToLiquidator(const string& sProduct, long 
 void QuickFixScheduler::exitScheduler()
 {
     _pTradeSignalMerger->writeEoDResult(_cSchedulerCfg.sLogPath, _cSchedulerCfg.sDate);
+
+    fstream fsOrderMsgFile;
+    fsOrderMsgFile.open(_cSchedulerCfg.sLogPath + "/OrderMsg.out", fstream::out);
+    if(fsOrderMsgFile.is_open())
+    {
+        fsOrderMsgFile << "Total order messages: " << _iTotalNumMsg;
+        fsOrderMsgFile.close();
+    }
+
+    exit(0);
 }
 
 void QuickFixScheduler::submitOrderBestPrice(unsigned int iProductIdx, long iQty, bool bIsLiquidation)

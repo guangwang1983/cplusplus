@@ -2,7 +2,6 @@
 #define QuoteData_H
 
 #include "KOEpochTime.h"
-#include <ibook/IBook.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 using std::string;
@@ -38,6 +37,7 @@ struct QuoteData
     KOEpochTime                     cControlUpdateTime;
     string                          sProduct;
     string                          sHCProduct;
+    string                          sTBProduct;
 
     string                          sRoot;
 
@@ -89,10 +89,6 @@ struct QuoteData
 
     KOEpochTime                     cMarketOpenTime;
     KOEpochTime                     cMarketCloseTime;
-
-    HC::source_t                    iGatewayID;
-    HC::instrumentkey_t             iHCInstrumentKey;
-    bool                            bInBundle;
 
     bool                            bIsLocalProduct;
     int                             iProductMaxRisk;

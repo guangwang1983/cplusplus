@@ -17,6 +17,8 @@ public:
     SchedulerConfig();
 
 	void loadCfgFile(string sConfigFileName);
+
+    string              sFixConfigFileName;
    
     string              sLogPath; 
     string              sOutputBasePath;
@@ -47,6 +49,7 @@ public:
 
     vector <string>     vProducts;
     vector <string>     vHCProducts;
+    vector <string>     vTBProducts;
     vector <bool>       vIsLocalProducts;
     vector <long>       vProductMaxRisk;
     vector <long>       vProductExpoLimit;

@@ -31,6 +31,7 @@ SchedulerConfig::SchedulerConfig()
     _cAllOptions.add_options()("Date", boost::program_options::value<string>(&sDate), "Simulation Date");
     _cAllOptions.add_options()("Products", boost::program_options::value<vector<string> >(&vProducts), "Products");
     _cAllOptions.add_options()("HCProducts", boost::program_options::value<vector<string> >(&vHCProducts), "HCProducts");
+    _cAllOptions.add_options()("TBProducts", boost::program_options::value<vector<string> >(&vTBProducts), "TBProducts");
     _cAllOptions.add_options()("IsLocalProducts", boost::program_options::value<vector<bool> >(&vIsLocalProducts), "IsLocalProducts");
     _cAllOptions.add_options()("ProductMaxRisk", boost::program_options::value<vector<long> >(&vProductMaxRisk), "ProductMaxRisk");
     _cAllOptions.add_options()("ProductExpoLimit", boost::program_options::value<vector<long> >(&vProductExpoLimit), "ProductExpoLimit");
@@ -58,6 +59,8 @@ SchedulerConfig::SchedulerConfig()
     _cAllOptions.add_options()("RandomiseConfigs", boost::program_options::value<bool>(&bRandomiseConfigs), "Randomise Trading Configs");
     _cAllOptions.add_options()("ErrorWarningLogLevel", boost::program_options::value<string>(&sErrorWarningLogLevel), "Error Warning Log Level");
     _cAllOptions.add_options()("ExecutorSimCfgFile", boost::program_options::value<string>(&sExecutorSimCfgFile), "Executor Simulator Config File");
+
+    _cAllOptions.add_options()("FixConfigFileName", boost::program_options::value<string>(&sFixConfigFileName), "Fix Config File");
 }
 
 void SchedulerConfig::loadCfgFile(string sConfigFileName)

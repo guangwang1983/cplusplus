@@ -5,7 +5,7 @@ CPPFLAGS := -std=c++11
 
 $(OUTPUT_DIR)/%.o: ./%.cpp
 	mkdir -p $(dir $@)
-	g++ $(CPPFLAGS) -c -o $@ $< -I/usr/local/boost/1.75.0/include/
+	g++ $(CPPFLAGS) -c -o $@ $< -I/usr/include/
 
 all: $(OBJ_FILES) rth_converter
 
@@ -15,4 +15,4 @@ $(OUTPUT_DIR):
 	mkdir -p $(OUTPUT_DIR)
 
 rth_converter: $(OBJ_FILES)
-	g++ $(CPPFLAGS) -o $(OUTPUT_DIR)/$@ $^ /usr/lib64/libhdf5_cpp.so /usr/lib64/libhdf5.so /usr/local/boost/1.75.0/lib/libboost_program_options.so /usr/local/boost/1.75.0/lib/libboost_date_time.so
+	g++ $(CPPFLAGS) -o $(OUTPUT_DIR)/$@ $^ /usr/lib64/libhdf5_cpp.so /usr/lib64/libhdf5.so /usr/lib64/libboost_date_time.so /usr/lib64/libboost_program_options.so

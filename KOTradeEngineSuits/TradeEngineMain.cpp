@@ -1,106 +1,125 @@
+#include "quickfix/FileStore.h"
+#include "quickfix/FileLog.h"
+#include "quickfix/SocketInitiator.h"
+#include "quickfix/Session.h"
+#include "quickfix/SessionSettings.h"
+#include "quickfix/Application.h"
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <string>
-#include <sstream>
 #include <iostream>
-#include <ctime>
-#include <stdlib.h>
-#include <vector>
-#include <string.h>
-#include <H5Cpp.h>
-#include "EngineInfra/SimpleLogger.h"
 #include "EngineInfra/SchedulerConfig.h"
-#include "EngineInfra/KOScheduler.h"
-#include "EngineInfra/KOModelFactory.h"
-#include <framework/ArgumentParser.h>
-#include <base-lib/VelioSessionManager.h>
-#include <time.h>
+#include "EngineInfra/QuickFixScheduler.h"
 
 using namespace std;
 using namespace KO;
 
-int main(int argc, char *argv[]) 
+bool isComment( const std::string& line )
 {
-    H5::Exception::dontPrint();
+  if( line.size() == 0 )
+    return false;
 
-    srand(time(0));
-    string sSimType = argv [1];
-    string sConfigFilePath;
+  return line[0] == '#';
+}
 
-    if(sSimType != "BaseSignal" && sSimType != "Config")
+bool isSection( const std::string& line )
+{
+  if( line.size() == 0 )
+    return false;
+
+  return line[0] == '[' && line[line.size()-1] == ']';
+}
+
+bool isKeyValue( const std::string& line )
+{
+  return line.find( '=' ) != std::string::npos;
+}
+
+int main( int argc, char** argv )
+{
+    // TODO: add simulation code
+
+    std::string sEngineMode = argv[1];
+    std::string sConfigFilePath = argv[2];
+    std::string sFixConfigFileName;        
+
+    SchedulerConfig cSchedulerConfig;
+    cSchedulerConfig.loadCfgFile(sConfigFilePath);
+
+    if(sEngineMode == "LIVE")
     {
-        ArgumentParser::parseArguments(argc, argv);
-        VelioSessionManager sessionManager;
-        sessionManager.initialize();
-        ManifestParser *mf = sessionManager.getManifestParser();
+        sFixConfigFileName = cSchedulerConfig.sFixConfigFileName;
 
-        sConfigFilePath.assign(mf->getProperty("LevelUp.configFile"));
+        QuickFixScheduler cQuickFixScheduler(cSchedulerConfig, true);
 
-        bool bIsLiveTrading;
-        string sIsSim = mf->getProperty("velio.model.backTestEnabled");
-        if(sIsSim.compare("true") == 0)
+        std::cerr << sFixConfigFileName << "\n";
+
+        FIX::SessionSettings cFixSettings(sFixConfigFileName);
+        std::cerr << "1\n";
+        FIX::FileStoreFactory cFixStoreFactory(cFixSettings);
+        std::cerr << "2\n";
+        FIX::FileLogFactory cFixLogFactory(cFixSettings);
+        std::cerr << "3\n";
+
+        std::ifstream fstream( sFixConfigFileName.c_str() );
+        char buffer[1024];
+        std::string line;
+        while( fstream.getline(buffer, sizeof(buffer)) )
         {
-            bIsLiveTrading = false;
+            line = string_strip( buffer );
+            if( isComment(line) )
+            {
+              continue;
+            }
+            else if( isSection(line) )
+            {
+                std::cerr << "is section \n";
+            }
+            else if( isKeyValue(line) )
+            {
+                std::cerr << "is key value \n";
+            }
         }
-        else
+
+        std::cerr << cFixSettings << "\n";
+
+        FIX::SocketInitiator cFixSocketInitiator(cQuickFixScheduler, cFixStoreFactory, cFixSettings, cFixLogFactory /*optional*/);
+
+        std::cerr << "4\n";
+        cFixSocketInitiator.start();
+        std::cerr << "5\n";
+        
+        boost::posix_time::ptime cPrevTime = boost::posix_time::microsec_clock::local_time();
+        while(true)
         {
-            bIsLiveTrading = true;
+            boost::posix_time::ptime cNowTime = boost::posix_time::microsec_clock::local_time();
+
+            int iPrevSec = cPrevTime.time_of_day().seconds();
+            int iNowSec = cNowTime.time_of_day().seconds();
+
+            cPrevTime = cNowTime;
+
+            if(iPrevSec != iNowSec)
+            {
+                cQuickFixScheduler.onTimer();
+            }
+
+            if(cQuickFixScheduler.bgetMarketDataSessionLoggedOn() == true)
+            {
+                if(cQuickFixScheduler.bgetMarketDataSubscribed() == false)
+                {
+                    // need to test reconnect and market data resubscription?
+                    cQuickFixScheduler.init();
+                }
+            }
+        
+            if(cQuickFixScheduler.bschedulerFinished())
+            {
+                break;
+            } 
         }
 
-        if(bIsLiveTrading == true)
-        {
-            //adjust daily release fold date to today for production stats
-            ///scratch/levelup/productionportfolio/DailyRelease20220623/aur/levelup_01_aur/KOConfig.cfg
-
-            size_t pos = sConfigFilePath.find("DailyRelease");
-            string sBefore = sConfigFilePath.substr(0,pos+12);
-            string sAfter = sConfigFilePath.substr(pos+20);
-
-            time_t now = time(0);
-            struct tm  tstruct;
-            char buf[80];
-            tstruct = *localtime(&now);
-            strftime(buf, sizeof(buf), "%Y%m%d", &tstruct);
-
-            sConfigFilePath = sBefore + buf + sAfter;
-
-            cerr << sConfigFilePath << "\n";
-        }
+        cFixSocketInitiator.stop();
+    }
     
-        SchedulerConfig cSchedulerConfig;
-        cSchedulerConfig.loadCfgFile(sConfigFilePath);
-
-        string sIsConflationBook = mf->getProperty("velio.ibook.conflation");
-        if(sIsConflationBook.compare("true") == 0)
-        {
-            cSchedulerConfig.bUseOnConflationDone = true;
-        }
-        else
-        {
-            cSchedulerConfig.bUseOnConflationDone = false;
-        }
-
-        KOModelFactory cKOModelFactory(cSchedulerConfig, bIsLiveTrading);
-        sessionManager.registerModelFactory(&cKOModelFactory);
-
-        cerr << cSchedulerConfig.sDate << "\n";
-
-        sessionManager.run();
-    }
-    else
-    {
-        sConfigFilePath = argv[2];
-        SchedulerConfig cSchedulerConfig;
-        cSchedulerConfig.loadCfgFile(sConfigFilePath);
-
-        KOScheduler cKOScheduler(sSimType, cSchedulerConfig);
-        if(cKOScheduler.init())
-        {
-            cKOScheduler.run();         
-        }
-        else
-        {
-            cerr << "Failed to initialised KO Scheduler. No simulation running.\n";    
-        }
-    }
-
-	return 0;
+    return 0;
 }

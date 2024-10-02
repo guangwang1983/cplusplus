@@ -26,6 +26,7 @@ enum FileFormat
 {
 	HC,
     HC_RAW,
+    KO_RAW,
 	TICKHISTORY,
 	TRTHv2,
     ALT_TRTHv2,
@@ -250,6 +251,16 @@ int main(int argc, char *argv[])
 	const int constHCRawAskSizeClmn = 5;
 	const int constHCRawTradeQualifierClmn = 8;
 
+	const int constKORawTimeStampClmn = 0;
+	const int constKORawTypeClmn = 1;
+	const int constKORawTradePriceClmn = 6;
+	const int constKORawTradeVolumeClmn = 7;
+	const int constKORawBidClmn = 3;
+	const int constKORawBidSizeClmn = 2;
+	const int constKORawAskClmn = 4;
+	const int constKORawAskSizeClmn = 5;
+	const int constKORawTradeQualifierClmn = 8;
+
 	const int constHCTimeStampClmn = 2;
 	const int constHCTypeClmn = 4;
 	const int constHCTradePriceClmn = 5;
@@ -378,7 +389,11 @@ int main(int argc, char *argv[])
 					else if(string(sNewLine).find("Timestamp,Type") != std::string::npos)
 					{
 						eFileFormat = HC_RAW;
-					}
+					}   
+                    else
+                    {
+                        eFileFormat = KO_RAW;
+                    }
 				}
 				else if(eFileFormat != UNKNOWN)
 				{
@@ -588,7 +603,63 @@ int main(int argc, char *argv[])
                                 sTradeQualifier = sElement;
                             }
                         }
-
+                        else if(eFileFormat == KO_RAW)
+                        {
+                            if(iColumnNumber == constKORawTimeStampClmn)
+                            {
+                                sTimeStamp = sElement;
+                            }
+                            else if(iColumnNumber == constKORawTypeClmn)
+                            {
+                                sLineAction = sElement;
+                            }
+                            else if (iColumnNumber == constKORawTradePriceClmn)
+                            {
+                                if(sLineAction == "Trade")
+                                {
+                                    sLineTradePrice = sElement;
+                                }
+                            }
+                            else if(iColumnNumber == constKORawTradeVolumeClmn)
+                            {
+                                if(sLineAction == "Trade")
+                                {
+                                    sLineTradeVolume = sElement;
+                                }	
+                            }
+                            else if(iColumnNumber == constKORawBidClmn)
+                            {
+                                if(sLineAction == "Quote")
+                                {
+                                    sLineBid = sElement;	
+                                }
+                            }
+                            else if(iColumnNumber == constKORawBidSizeClmn)
+                            {
+                                if(sLineAction == "Quote")
+                                {
+                                    sLineBidSize = sElement;	
+                                }
+                            }
+                            else if(iColumnNumber == constKORawAskClmn)
+                            {
+                                if(sLineAction == "Quote")
+                                {
+                                    sLineAsk = sElement;	
+                                }
+                            }
+                            else if(iColumnNumber == constKORawAskSizeClmn)
+                            {
+                                if(sLineAction == "Quote")
+                                {
+                                    sLineAskSize = sElement;	
+                                }
+                            }
+                            else if(iColumnNumber == constKORawTradeQualifierClmn)
+                            {
+                                sTradeQualifier = sElement;
+                            }
+                        }
                         else if(eFileFormat == ALT_TRTHv2)
                         {
                             if(iColumnNumber == constAltTRTHv2TimeStampClmn)
@@ -724,7 +795,11 @@ int main(int argc, char *argv[])
                     {
                         if(sTimeStamp != "")
                         {
-                            if(eFileFormat == HC_RAW)
+                            if(eFileFormat == KO_RAW)
+                            {
+                                iCurrentTime = stoll(sTimeStamp);
+                            }
+                            else if(eFileFormat == HC_RAW)
                             {
                                 iCurrentTime = stoll(sTimeStamp) / (long long) 1000;
                             }
@@ -952,6 +1027,7 @@ int main(int argc, char *argv[])
                                             {
                                                 dWeightedMidInTicks = (double)iBidInTicks + (double)iBidSize / (double)(iBidSize + iAskSize);
                                             }
+
                                             dWeightedMid = dWeightedMidInTicks * dTickSize;
                                             cNewTickDataPoint.dWeightedMid = dWeightedMid;
                                             cNewTickDataPoint.dWeightedMidInTicks = dWeightedMidInTicks;
