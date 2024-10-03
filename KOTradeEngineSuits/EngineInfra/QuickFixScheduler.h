@@ -43,7 +43,7 @@ public:
 
     void onTimer();
 
-    virtual void onCreate(const SessionID&);
+    virtual void onCreate(const SessionID& cSessionID);
     virtual void onLogon(const SessionID& cSessionID);
     virtual void onLogout(const SessionID&);
     virtual void toAdmin(Message& cMessage, const SessionID& cSessionID);

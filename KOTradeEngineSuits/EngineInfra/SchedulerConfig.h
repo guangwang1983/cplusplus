@@ -55,6 +55,8 @@ public:
     vector <long>       vProductExpoLimit;
     vector <long>       vProductStopLoss;
 
+    vector<string>      vFXSubProducts;
+
     string              sTradingLocation;
     bool                bUse100ms;
 

@@ -50,14 +50,9 @@ int main( int argc, char** argv )
 
         QuickFixScheduler cQuickFixScheduler(cSchedulerConfig, true);
 
-        std::cerr << sFixConfigFileName << "\n";
-
         FIX::SessionSettings cFixSettings(sFixConfigFileName);
-        std::cerr << "1\n";
         FIX::FileStoreFactory cFixStoreFactory(cFixSettings);
-        std::cerr << "2\n";
         FIX::FileLogFactory cFixLogFactory(cFixSettings);
-        std::cerr << "3\n";
 
         std::ifstream fstream( sFixConfigFileName.c_str() );
         char buffer[1024];
@@ -69,23 +64,11 @@ int main( int argc, char** argv )
             {
               continue;
             }
-            else if( isSection(line) )
-            {
-                std::cerr << "is section \n";
-            }
-            else if( isKeyValue(line) )
-            {
-                std::cerr << "is key value \n";
-            }
         }
-
-        std::cerr << cFixSettings << "\n";
 
         FIX::SocketInitiator cFixSocketInitiator(cQuickFixScheduler, cFixStoreFactory, cFixSettings, cFixLogFactory /*optional*/);
 
-        std::cerr << "4\n";
         cFixSocketInitiator.start();
-        std::cerr << "5\n";
         
         boost::posix_time::ptime cPrevTime = boost::posix_time::microsec_clock::local_time();
         while(true)

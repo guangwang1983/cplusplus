@@ -87,7 +87,7 @@ void DataRecorder::receive(int iCID)
                            << vContractQuoteDatas[0]->iBidSize << ","
                            << vContractQuoteDatas[0]->dBestBid << ","
                            << vContractQuoteDatas[0]->dBestAsk << ","
-                           << vContractQuoteDatas[0]->iAskSize << ",,,";
+                           << vContractQuoteDatas[0]->iAskSize << ",,,\n";
     }
 
     (void) iCID;

@@ -37,6 +37,8 @@ SchedulerConfig::SchedulerConfig()
     _cAllOptions.add_options()("ProductExpoLimit", boost::program_options::value<vector<long> >(&vProductExpoLimit), "ProductExpoLimit");
     _cAllOptions.add_options()("ProductStopLoss", boost::program_options::value<vector<long> >(&vProductStopLoss), "ProductStopLoss");
 
+    _cAllOptions.add_options()("FXSubProducts", boost::program_options::value<vector<string> >(&vFXSubProducts), "FXSubProducts");
+
     _cAllOptions.add_options()("TradingLocation", boost::program_options::value<string>(&sTradingLocation), "Trading Location");
     _cAllOptions.add_options()("Use100ms", boost::program_options::value<bool>(&bUse100ms), "Use 100ms data");
 

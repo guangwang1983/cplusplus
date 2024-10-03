@@ -117,13 +117,17 @@ void QuickFixScheduler::init()
         message.addGroup(cMDEntryGroup);
         cMDEntryGroup.set(FIX::MDEntryType('1'));
         message.addGroup(cMDEntryGroup);
+        cMDEntryGroup.set(FIX::MDEntryType('2'));
+        message.addGroup(cMDEntryGroup);
 
         // number of requested instrument
         message.setField(146, "1");
 
-        std::cerr << "sending market data subscription request \n";
         FIX::Session::sendToTarget(message, *_pMarketDataSessionID);
-        std::cerr << "request sent \n";
+
+        stringstream cLogStringStream;
+        cLogStringStream << "Sending market data subscription request for " << _cSchedulerCfg.vProducts[i] << " TB Code " << _cSchedulerCfg.vTBProducts[i] << ".";
+        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", pNewQuoteDataPtr->sProduct, cLogStringStream.str());
     }
 
     _bMarketDataSubscribed = true;
@@ -795,32 +799,44 @@ void QuickFixScheduler::onTimer()
     processTimeEvents(cNewUpdateTime);
 }
 
-void QuickFixScheduler::onCreate(const SessionID&)
+void QuickFixScheduler::onCreate(const SessionID& cSessionID)
 {
-    std::cerr << "fix session created \n";
+    if(cSessionID.getSenderCompID() == "MD")
+    {
+        stringstream cStringStream;
+        cStringStream << "Creating market data fix session";
+        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+    }
+    else if(cSessionID.getSenderCompID() == "TR2")
+    {
+        stringstream cStringStream;
+        cStringStream << "Creating order fix session";
+        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+    }
 }
 
 void QuickFixScheduler::onLogon(const SessionID& cSessionID)
 {
-    std::cerr << "logged on to server \n";
-
     if(cSessionID.getSenderCompID() == "MD")
     {
-        std::cerr << "logged on to market data session \n";
-        _pMarketDataSessionID = &cSessionID;
         _bMarketDataSessionLoggedOn = true;
+        _pMarketDataSessionID = &cSessionID;
+        stringstream cStringStream;
+        cStringStream << "Logged on to market data fix session";
+        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
     }
     else if(cSessionID.getSenderCompID() == "TR2")
     {
-        std::cerr << "logged on to order session \n";
-        _pOrderSessionID = &cSessionID;
         _bOrderSessionLoggedOn = true;
+        _pOrderSessionID = &cSessionID;
+        stringstream cStringStream;
+        cStringStream << "Logged on to order fix session";
+        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
     }
 }
 
 void QuickFixScheduler::onLogout(const SessionID&)
 {
-    std::cerr << "logged out of server \n";
     // TODO: delete all existing orders on engine dying?
     // TODO: handling exising orders on re-connect
 }
@@ -853,25 +869,47 @@ void QuickFixScheduler::fromAdmin(const Message& cMessage, const SessionID& cSes
 
 void QuickFixScheduler::fromApp(const Message& cMessage, const SessionID& cSessionID) throw(FieldNotFound, IncorrectDataFormat, IncorrectTagValue, UnsupportedMessageType)
 {
-    std::cerr << "received new FIX message \n";
-    std::cerr << "cracking message \n";
     crack(cMessage, cSessionID);
-    std::cerr << "message cracked\n";
 }
 
 void QuickFixScheduler::onMessage(const FIX44::Logout& cLogout, const FIX::SessionID& cSessionID)
 {
     FIX::Text cText;
     cLogout.get(cText);
-    cerr << "FATAL ERROR Disconnected from server. Reason: " << cText << "\n"; 
-    //TODO: add central switch for order actions base on session status
+
+    if(cSessionID.getSenderCompID() == "MD")
+    {
+        _bMarketDataSessionLoggedOn = false;
+        stringstream cStringStream;
+        cStringStream << "Market data fix session disconnected. Reason: " << cText;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    }
+    else if(cSessionID.getSenderCompID() == "TR2")
+    {
+        stringstream cStringStream;
+        _bOrderSessionLoggedOn = true;
+        cStringStream << "Order fix session disconneceted. Reason: " << cText;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    }
 }
 
 void QuickFixScheduler::onMessage(FIX44::Reject& cReject, const FIX::SessionID& cSessionID)
 {
     FIX::Text cText;
     cReject.get(cText);
-    std::cerr << "FATAL ERROR server message rejected. Reason:" << cText << "\n";
+
+    if(cSessionID.getSenderCompID() == "MD")
+    {
+        stringstream cStringStream;
+        cStringStream << "Invalid market data fix message. Reason: " << cText;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    }
+    else if(cSessionID.getSenderCompID() == "TR2")
+    {
+        stringstream cStringStream;
+        cStringStream << "Invalid order fix message. Reason: " << cText;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    }
 }
 
 void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport, const FIX::SessionID& cSessionID)
@@ -1173,10 +1211,11 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
 
 void QuickFixScheduler::onMessage(const FIX44::MarketDataSnapshotFullRefresh& cMarketDataSnapshotFullRefresh, const FIX::SessionID& cSessionID)
 {
-    std::cerr << "received market data \n";
-
     int iCID;
     iCID = atoi(cMarketDataSnapshotFullRefresh.getField(262).c_str());
+
+    int iNumEntries;
+    iNumEntries = atoi(cMarketDataSnapshotFullRefresh.getField(268).c_str());
 
     FIX44::MarketDataSnapshotFullRefresh::NoMDEntries group;
     FIX::MDEntryType MDEntryType;
@@ -1187,57 +1226,56 @@ void QuickFixScheduler::onMessage(const FIX44::MarketDataSnapshotFullRefresh& cM
     double dBestBid;
     double dBestAsk;
     long iAskSize;
+    double dLastTrade;
+    long iLastTradeSize;
 
-    cMarketDataSnapshotFullRefresh.getGroup(1, group);
-    group.get(MDEntryType);
-    group.get(MDEntryPx);
-    group.get(MDEntrySize);
-    if(MDEntryType == '0')
-    {
-        iBidSize = MDEntrySize;
-        dBestBid = MDEntryPx;
-    }
-    else
-    {
-        iAskSize = MDEntrySize;
-        dBestAsk = MDEntryPx;
-    }
-
-    cMarketDataSnapshotFullRefresh.getGroup(2, group);
-    group.get(MDEntryType);
-    group.get(MDEntryPx);
-    group.get(MDEntrySize);
-    if(MDEntryType == '0')
-    {
-        iBidSize = MDEntrySize;
-        dBestBid = MDEntryPx;
-    }
-    else
-    {
-        iAskSize = MDEntrySize;
-        dBestAsk = MDEntryPx;
-    }
-
+    _vContractQuoteDatas[iCID]->iTradeSize = 0;
     _vContractQuoteDatas[iCID]->iPrevBidInTicks = _vContractQuoteDatas[iCID]->iBestBidInTicks;
     _vContractQuoteDatas[iCID]->iPrevAskInTicks = _vContractQuoteDatas[iCID]->iBestAskInTicks;
     _vContractQuoteDatas[iCID]->iPrevBidSize = _vContractQuoteDatas[iCID]->iBidSize;
     _vContractQuoteDatas[iCID]->iPrevAskSize = _vContractQuoteDatas[iCID]->iAskSize;
 
-    _vContractQuoteDatas[iCID]->dBestBid = dBestBid;
-    _vContractQuoteDatas[iCID]->iBestBidInTicks = boost::math::iround(_vContractQuoteDatas[iCID]->dBestBid / _vContractQuoteDatas[iCID]->dTickSize);
-    _vContractQuoteDatas[iCID]->iBidSize = iBidSize;
+    for(int i = 0; i < iNumEntries; i++)
+    {
+        cMarketDataSnapshotFullRefresh.getGroup(i+1, group);
+        group.get(MDEntryType);
+        group.get(MDEntryPx);
+        group.get(MDEntrySize);
 
-    _vContractQuoteDatas[iCID]->dBestAsk = dBestAsk;
-    _vContractQuoteDatas[iCID]->iBestAskInTicks = boost::math::iround(_vContractQuoteDatas[iCID]->dBestAsk / _vContractQuoteDatas[iCID]->dTickSize);
-    _vContractQuoteDatas[iCID]->iAskSize = iAskSize;
+        if(MDEntryType == '0')
+        {
+            iBidSize = MDEntrySize;
+            dBestBid = MDEntryPx;
 
-    // we dont use last trade info in live trading. set the accum trade size to dummy value to pass the price validity check
-    _vContractQuoteDatas[iCID]->iAccumuTradeSize = -1;
+            _vContractQuoteDatas[iCID]->dBestBid = dBestBid;
+            _vContractQuoteDatas[iCID]->iBestBidInTicks = boost::math::iround(_vContractQuoteDatas[iCID]->dBestBid / _vContractQuoteDatas[iCID]->dTickSize);
+            _vContractQuoteDatas[iCID]->iBidSize = iBidSize;
+        }
+        else if(MDEntryType == '1')
+        {
+            iAskSize = MDEntrySize;
+            dBestAsk = MDEntryPx;
 
-    if(_vContractQuoteDatas[iCID]->iPrevBidInTicks != _vContractQuoteDatas[iCID]->iBestBidInTicks || _vContractQuoteDatas[iCID]->iPrevAskInTicks != _vContractQuoteDatas[iCID]->iBestAskInTicks || _vContractQuoteDatas[iCID]->iPrevBidSize != _vContractQuoteDatas[iCID]->iBidSize || _vContractQuoteDatas[iCID]->iPrevAskSize != _vContractQuoteDatas[iCID]->iAskSize)
+            _vContractQuoteDatas[iCID]->dBestAsk = dBestAsk;
+            _vContractQuoteDatas[iCID]->iBestAskInTicks = boost::math::iround(_vContractQuoteDatas[iCID]->dBestAsk / _vContractQuoteDatas[iCID]->dTickSize);
+            _vContractQuoteDatas[iCID]->iAskSize = iAskSize;
+        }
+        else if(MDEntryType == '2')
+        {
+            iLastTradeSize = MDEntrySize;
+            dLastTrade = MDEntryPx;
+
+            _vContractQuoteDatas[iCID]->dLastTradePrice = dLastTrade;
+            _vContractQuoteDatas[iCID]->iLastTradeInTicks = boost::math::iround(_vContractQuoteDatas[iCID]->dLastTradePrice / _vContractQuoteDatas[iCID]->dTickSize);
+            _vContractQuoteDatas[iCID]->iTradeSize = iLastTradeSize;
+            _vContractQuoteDatas[iCID]->iAccumuTradeSize = _vContractQuoteDatas[iCID]->iAccumuTradeSize + iLastTradeSize;
+        }
+    }
+
+    if(_vContractQuoteDatas[iCID]->iPrevBidInTicks != _vContractQuoteDatas[iCID]->iBestBidInTicks || _vContractQuoteDatas[iCID]->iPrevAskInTicks != _vContractQuoteDatas[iCID]->iBestAskInTicks || _vContractQuoteDatas[iCID]->iPrevBidSize != _vContractQuoteDatas[iCID]->iBidSize || _vContractQuoteDatas[iCID]->iPrevAskSize != _vContractQuoteDatas[iCID]->iAskSize || iLastTradeSize != 0)
     {
         double dWeightedMidInTicks;
-        if(_vContractQuoteDatas[iCID]->iBestAskInTicks - _vContractQuoteDatas[iCID]->iBestBidInTicks > 1 && _vContractQuoteDatas[iCID]->iBidSize > 0 && _vContractQuoteDatas[iCID]->iAskSize > 0)
+        if(_vContractQuoteDatas[iCID]->iBestAskInTicks - _vContractQuoteDatas[iCID]->iBestBidInTicks != 1 || (_vContractQuoteDatas[iCID]->iBidSize + _vContractQuoteDatas[iCID]->iAskSize == 0))
         {
             dWeightedMidInTicks = (double)(_vContractQuoteDatas[iCID]->iBestAskInTicks + _vContractQuoteDatas[iCID]->iBestBidInTicks) / 2;
         }
@@ -1262,7 +1300,19 @@ void QuickFixScheduler::onMessage(FIX44::BusinessMessageReject& cBusinessMessage
 {
     FIX::Text cText;
     cBusinessMessageReject.get(cText);
-    std::cerr <<"FATAL ERROR Unabled to handle server message. Reason:" << cText << "\n";
+
+    if(cSessionID.getSenderCompID() == "MD")
+    {
+        stringstream cStringStream;
+        cStringStream << "Unable to handle market data server message. Reason: " << cText;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    }
+    else if(cSessionID.getSenderCompID() == "TR2")
+    {
+        stringstream cStringStream;
+        cStringStream << "Unable to handle order server message. Reason: " << cText;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    }
 }
 
 void QuickFixScheduler::onMessage(const FIX44::BusinessMessageReject& cBusinessMessageReject, const FIX::SessionID& cSessionID)
