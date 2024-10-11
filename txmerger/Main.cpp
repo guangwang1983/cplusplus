@@ -5,15 +5,31 @@
 #include <H5Cpp.h>
 #include <cstdio>
 #include <sys/stat.h>
+#include <cstdlib>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/local_time_adjustor.hpp>
 #include <boost/date_time/c_local_time_adjustor.hpp>
 #include <boost/date_time/local_timezone_defs.hpp>
-#include <boost/filesystem.hpp>
 
 using namespace H5;
 using namespace std;
+
+std::string random_string( size_t length )
+{
+    auto randchar = []() -> char
+    {
+        const char charset[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+        const size_t max_index = (sizeof(charset) - 1);
+        return charset[ rand() % max_index ];
+    };
+    std::string str(length,0);
+    std::generate_n( str.begin(), length, randchar );
+    return str;
+}
 
 struct SimTransaction
 {
@@ -242,8 +258,9 @@ int main(int argc, char *argv[])
 
         if(bUseMemDisk == true)
         {
-            sTempDir = "/mnt/ram-disk/" + boost::filesystem::unique_path().string();
-            boost::filesystem::create_directories(sTempDir);
+            sTempDir = "/mnt/ram-disk/" + random_string(10);
+            string sCommand = "mkdir -p " + sTempDir;
+            system(sCommand.c_str());
         }
         else
         {

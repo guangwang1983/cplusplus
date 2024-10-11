@@ -27,6 +27,7 @@ enum FileFormat
 	HC,
     HC_RAW,
     KO_RAW,
+    RTH_DATA,
 	TICKHISTORY,
 	TRTHv2,
     ALT_TRTHv2,
@@ -191,7 +192,7 @@ int main(int argc, char *argv[])
     vector<long> vMinLatencies;
     vector<long> v5MinLatencies;
 
-    long iArtificialSpread;
+    long iArtificialSpread = 0;
     bool bCheckData;
 
     bool bTickSizeAdjusted = false;
@@ -271,6 +272,16 @@ int main(int argc, char *argv[])
 	const int constHCAskSizeClmn = 10;
 	const int constHCTradeQualifierClmn = 11;
 
+	const int constRTHDataTimeStampClmn = 3;
+	const int constRTHDataTypeClmn = 5;
+	const int constRTHDataTradePriceClmn = 6;
+	const int constRTHDataTradeVolumeClmn = 7;
+	const int constRTHDataBidClmn = 8;
+	const int constRTHDataBidSizeClmn = 9;
+	const int constRTHDataAskClmn = 10;
+	const int constRTHDataAskSizeClmn = 11;
+	const int constRTHDataTradeQualifierClmn = 12;
+
 	const int constTRTHv2TimeStampClmn = 2;
 	const int constTRTHv2TypeClmn = 4;
 	const int constTRTHv2TradePriceClmn = 7;
@@ -330,7 +341,7 @@ int main(int argc, char *argv[])
     double dSpreadSum = 0;
     double dSqrdSpreadSum = 0;
     long iNumSpreadSample = 0;
-    
+ 
     string sStartOfDayTime = sDate.substr(0,4) + "-" + sDate.substr(4,2) + "-" + sDate.substr(6,2) + "T00:00:01Z000000";
     long iStartOfDayTimeUTC = iFromStringToEpoch(sStartOfDayTime.c_str()) * 1000000;
 	
@@ -389,6 +400,10 @@ int main(int argc, char *argv[])
 					else if(string(sNewLine).find("Timestamp,Type") != std::string::npos)
 					{
 						eFileFormat = HC_RAW;
+					}
+                    else if(string(sNewLine).find("RTH Data") != std::string::npos)
+					{
+						eFileFormat = RTH_DATA;
 					}   
                     else
                     {
@@ -660,6 +675,64 @@ int main(int argc, char *argv[])
                                 sTradeQualifier = sElement;
                             }
                         }
+                        else if(eFileFormat == RTH_DATA)
+                        {
+                            if(iColumnNumber == constRTHDataTimeStampClmn)
+                            {
+                                sTimeStamp = sElement;
+                            }
+                            else if(iColumnNumber == constRTHDataTypeClmn)
+                            {
+                                sLineAction = sElement;
+                            }
+                            else if (iColumnNumber == constRTHDataTradePriceClmn)
+                            {
+                                if(sLineAction == "Trade")
+                                {
+                                    sLineTradePrice = sElement;
+                                }
+                            }
+                            else if(iColumnNumber == constRTHDataTradeVolumeClmn)
+                            {
+                                if(sLineAction == "Trade")
+                                {
+                                    sLineTradeVolume = sElement;
+                                }	
+                            }
+                            else if(iColumnNumber == constRTHDataBidClmn)
+                            {
+                                if(sLineAction == "Quote")
+                                {
+                                    sLineBid = sElement;	
+                                }
+                            }
+                            else if(iColumnNumber == constRTHDataBidSizeClmn)
+                            {
+                                if(sLineAction == "Quote")
+                                {
+                                    sLineBidSize = sElement;	
+                                }
+                            }
+                            else if(iColumnNumber == constRTHDataAskClmn)
+                            {
+                                if(sLineAction == "Quote")
+                                {
+                                    sLineAsk = sElement;	
+                                }
+                            }
+                            else if(iColumnNumber == constRTHDataAskSizeClmn)
+                            {
+                                if(sLineAction == "Quote")
+                                {
+                                    sLineAskSize = sElement;	
+                                }
+                            }
+                            else if(iColumnNumber == constRTHDataTradeQualifierClmn)
+                            {
+                                sTradeQualifier = sElement;
+                            }
+                        }
+
                         else if(eFileFormat == ALT_TRTHv2)
                         {
                             if(iColumnNumber == constAltTRTHv2TimeStampClmn)
@@ -958,6 +1031,12 @@ int main(int argc, char *argv[])
                                 }
                                 else if(sLineAction == "Quote")
                                 {
+                                    if(iArtificialSpread != 0)
+                                    {
+                                        sLineBidSize = "1000000";
+                                        sLineAskSize = "1000000";
+                                    }
+
                                     if(sLineBid != "" || sLineBidSize != "" || sLineAsk != "" || sLineAskSize != "")
                                     {
                                         if(sLineBid != "")
