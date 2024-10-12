@@ -153,6 +153,8 @@ void loadAllTransactions(const string& sAbsConfigPath, vector<string>& vDates, v
 
 int main(int argc, char *argv[])
 {
+    srand(time(NULL));
+
     H5::Exception::dontPrint();
 
     string sDatesFile;
