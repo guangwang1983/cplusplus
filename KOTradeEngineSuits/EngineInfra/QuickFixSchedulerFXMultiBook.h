@@ -71,10 +71,7 @@ private:
 
     void submitOrderBestPriceMultiBook(unsigned int iProductIdx, long iQty, bool bIsLiquidation);
 
-    void deleteOrder(KOOrderPtr pOrder);
-    void amendOrder(KOOrderPtr pOrder, long iQty, long iPriceInTicks);
-    void amendOrderPriceInTicks(KOOrderPtr pOrder, long iPriceInTicks);
-    long icalcualteOrderPrice(unsigned int iProductIdx, long iOrderPrice, long iQty, bool bOrderInMarket, bool bIsLiquidation);
+    long icalcualteOrderPrice(unsigned int iProductIdx, long iOrderPrice, long iQty, bool bOrderInMarket, bool bIsLiquidation, bool bIsIOC);
 
     bool bcheckRisk(unsigned int iProductIdx, long iNewQty);
     void checkOrderState(KOEpochTime cCurrentTime);    
@@ -87,6 +84,8 @@ private:
 
     const FIX::SessionID* _pMarketDataSessionID;
     const FIX::SessionID* _pOrderSessionID;
+    string _sMDSenderCompID;
+    string _sOrderSenderCompID;
 
     vector<vector<KOOrderPtr>> _vProductOrderList;
     vector<int> _vProductDesiredPos;

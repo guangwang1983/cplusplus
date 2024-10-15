@@ -86,6 +86,8 @@ private:
 
     const FIX::SessionID* _pMarketDataSessionID;
     const FIX::SessionID* _pOrderSessionID;
+    string _sOrderSenderCompID;
+    string _sMDSenderCompID;
 
     vector<vector<KOOrderPtr>> _vProductOrderList;
     vector<int> _vProductDesiredPos;

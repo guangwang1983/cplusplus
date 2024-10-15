@@ -34,6 +34,8 @@ SLBase::SLBase(const string& sEngineRunTimePath,
  _bValidStatsSeen(false),
  _bInvalidStatTriggered(false)
 {
+    H5Eset_auto2(H5E_DEFAULT, NULL, NULL);
+
     _bWriteLog = false;
     _bWriteSpreadLog = false;
 

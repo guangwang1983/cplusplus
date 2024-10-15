@@ -27,6 +27,7 @@ public:
     };
 
     friend class QuickFixScheduler;
+    friend class QuickFixSchedulerFXMultiBook;
     friend class KOScheduler;
     friend class SchedulerBase;
     friend class SimulationExchange;

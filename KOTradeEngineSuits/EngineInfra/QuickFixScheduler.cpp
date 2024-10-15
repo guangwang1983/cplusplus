@@ -43,6 +43,9 @@ QuickFixScheduler::QuickFixScheduler(SchedulerConfig &cfg, bool bIsLiveTrading)
 
     _iTimeIndex = 0;
 
+    _sOrderSenderCompID = "";
+    _sMDSenderCompID = "";
+
     preCommonInit();
 }
 
@@ -53,8 +56,10 @@ QuickFixScheduler::~QuickFixScheduler()
 
 void QuickFixScheduler::init()
 {
+cerr << "init \n";
     for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
     {
+cerr << "subscribing " << _cSchedulerCfg.vProducts[i] << "\n";
         QuoteData* pNewQuoteDataPtr;
 
         if(_cSchedulerCfg.vProducts[i].find("CFX") == 0)
@@ -94,11 +99,11 @@ void QuickFixScheduler::init()
 
         FIX::Message message;
         message.getHeader().setField(8, "FIX.4.4");
-        message.getHeader().setField(49, "TW");
+        message.getHeader().setField(49, _sMDSenderCompID);
         message.getHeader().setField(56, "TBRICKS");
         message.getHeader().setField(35, "V");
 
-        message.setField(22, "TB");
+        message.setField(22, "9");
         message.setField(48, _cSchedulerCfg.vTBProducts[i]);
         message.setField(15, "EUR"); // TODO: work out the currency ??
 
@@ -122,7 +127,6 @@ void QuickFixScheduler::init()
 
         // number of requested instrument
         message.setField(146, "1");
-
         FIX::Session::sendToTarget(message, *_pMarketDataSessionID);
 
         stringstream cLogStringStream;
@@ -409,7 +413,7 @@ void QuickFixScheduler::submitOrderBestPrice(unsigned int iProductIdx, long iQty
 
     FIX::Message message;
     message.getHeader().setField(8, "FIX.4.4");
-    message.getHeader().setField(49, "TR2");
+    message.getHeader().setField(49, _sOrderSenderCompID);
     message.getHeader().setField(56, "TBRICKS");
     message.getHeader().setField(35, "D"); // message type for new order
     message.getHeader().setField(11, sPendingOrderID); // client order id
@@ -506,7 +510,7 @@ void QuickFixScheduler::deleteOrder(KOOrderPtr pOrder)
     {
         FIX::Message message;
         message.getHeader().setField(8, "FIX.4.4");
-        message.getHeader().setField(49, "TR2");
+        message.getHeader().setField(49, _sOrderSenderCompID);
         message.getHeader().setField(56, "TBRICKS");
         message.getHeader().setField(35, "F"); // message type for order cancel
 
@@ -565,7 +569,7 @@ void QuickFixScheduler::amendOrder(KOOrderPtr pOrder, long iQty, long iPriceInTi
 
         FIX::Message message;
         message.getHeader().setField(8, "FIX.4.4");
-        message.getHeader().setField(49, "TR2");
+        message.getHeader().setField(49, _sOrderSenderCompID);
         message.getHeader().setField(56, "TBRICKS");
         message.getHeader().setField(35, "G"); // message type for order amend
 
@@ -801,13 +805,15 @@ void QuickFixScheduler::onTimer()
 
 void QuickFixScheduler::onCreate(const SessionID& cSessionID)
 {
-    if(cSessionID.getSenderCompID() == "MD")
+    string sSenderCompID = cSessionID.getSenderCompID();
+
+    if(sSenderCompID.find("MD") != std::string::npos)
     {
         stringstream cStringStream;
         cStringStream << "Creating market data fix session";
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
     }
-    else if(cSessionID.getSenderCompID() == "TR2")
+    else if(sSenderCompID.find("TR") != std::string::npos) 
     {
         stringstream cStringStream;
         cStringStream << "Creating order fix session";
@@ -817,21 +823,25 @@ void QuickFixScheduler::onCreate(const SessionID& cSessionID)
 
 void QuickFixScheduler::onLogon(const SessionID& cSessionID)
 {
-    if(cSessionID.getSenderCompID() == "MD")
+    string sSenderCompID = cSessionID.getSenderCompID();
+
+    if(sSenderCompID.find("MD") != std::string::npos)
     {
-        _bMarketDataSessionLoggedOn = true;
         _pMarketDataSessionID = &cSessionID;
+        _sMDSenderCompID = sSenderCompID;
         stringstream cStringStream;
         cStringStream << "Logged on to market data fix session";
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+        _bMarketDataSessionLoggedOn = true;
     }
-    else if(cSessionID.getSenderCompID() == "TR2")
+    else if(sSenderCompID.find("TR") != std::string::npos)
     {
-        _bOrderSessionLoggedOn = true;
         _pOrderSessionID = &cSessionID;
+        _sOrderSenderCompID = sSenderCompID;
         stringstream cStringStream;
         cStringStream << "Logged on to order fix session";
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+        _bOrderSessionLoggedOn = true;
     }
 }
 
@@ -877,14 +887,15 @@ void QuickFixScheduler::onMessage(const FIX44::Logout& cLogout, const FIX::Sessi
     FIX::Text cText;
     cLogout.get(cText);
 
-    if(cSessionID.getSenderCompID() == "MD")
+    string sSenderCompID = cSessionID.getSenderCompID();
+    if(sSenderCompID.find("MD") != std::string::npos)
     {
         _bMarketDataSessionLoggedOn = false;
         stringstream cStringStream;
         cStringStream << "Market data fix session disconnected. Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
-    else if(cSessionID.getSenderCompID() == "TR2")
+    else if(sSenderCompID.find("TR") != std::string::npos)
     {
         stringstream cStringStream;
         _bOrderSessionLoggedOn = true;
@@ -898,13 +909,14 @@ void QuickFixScheduler::onMessage(FIX44::Reject& cReject, const FIX::SessionID& 
     FIX::Text cText;
     cReject.get(cText);
 
-    if(cSessionID.getSenderCompID() == "MD")
+    string sSenderCompID = cSessionID.getSenderCompID();    
+    if(sSenderCompID.find("MD") != std::string::npos)
     {
         stringstream cStringStream;
         cStringStream << "Invalid market data fix message. Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
-    else if(cSessionID.getSenderCompID() == "TR2")
+    else if(sSenderCompID.find("TR") != std::string::npos)
     {
         stringstream cStringStream;
         cStringStream << "Invalid order fix message. Reason: " << cText;
@@ -1301,13 +1313,14 @@ void QuickFixScheduler::onMessage(FIX44::BusinessMessageReject& cBusinessMessage
     FIX::Text cText;
     cBusinessMessageReject.get(cText);
 
-    if(cSessionID.getSenderCompID() == "MD")
+    string sSenderCompID = cSessionID.getSenderCompID();
+    if(sSenderCompID.find("MD") != std::string::npos)
     {
         stringstream cStringStream;
         cStringStream << "Unable to handle market data server message. Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
-    else if(cSessionID.getSenderCompID() == "TR2")
+    else if(sSenderCompID.find("TR") != std::string::npos)
     {
         stringstream cStringStream;
         cStringStream << "Unable to handle order server message. Reason: " << cText;
@@ -1747,7 +1760,7 @@ void QuickFixScheduler::amendOrderPriceInTicks(KOOrderPtr pOrder, long iPriceInT
 
         FIX::Message message;
         message.getHeader().setField(8, "FIX.4.4");
-        message.getHeader().setField(49, "TR2");
+        message.getHeader().setField(49, _sOrderSenderCompID);
         message.getHeader().setField(56, "TBRICKS");
         message.getHeader().setField(35, "G"); // message type for order amend
 
