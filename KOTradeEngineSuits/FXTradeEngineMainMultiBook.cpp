@@ -1,108 +1,122 @@
+#include "quickfix/FileStore.h"
+#include "quickfix/FileLog.h"
+#include "quickfix/SocketInitiator.h"
+#include "quickfix/Session.h"
+#include "quickfix/SessionSettings.h"
+#include "quickfix/Application.h"
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <string>
-#include <sstream>
 #include <iostream>
-#include <ctime>
-#include <stdlib.h>
-#include <vector>
-#include <string.h>
-#include <H5Cpp.h>
-#include "EngineInfra/SimpleLogger.h"
 #include "EngineInfra/SchedulerConfig.h"
+#include "EngineInfra/QuickFixSchedulerFXMultiBook.h"
 #include "EngineInfra/KOScheduler.h"
-#include "EngineInfra/KOFXModelFactoryMultiBook.h"
-#include <framework/ArgumentParser.h>
-#include <base-lib/VelioSessionManager.h>
-#include <time.h>
 
 using namespace std;
 using namespace KO;
 
-int main(int argc, char *argv[]) 
+bool isComment( const std::string& line )
 {
-    H5::Exception::dontPrint();
+  if( line.size() == 0 )
+    return false;
 
-    srand(time(0));
-    string sSimType = argv [1];
-    string sConfigFilePath;
+  return line[0] == '#';
+}
 
-    if(sSimType != "BaseSignal" && sSimType != "Config")
+bool isSection( const std::string& line )
+{
+  if( line.size() == 0 )
+    return false;
+
+  return line[0] == '[' && line[line.size()-1] == ']';
+}
+
+bool isKeyValue( const std::string& line )
+{
+  return line.find( '=' ) != std::string::npos;
+}
+
+int main( int argc, char** argv )
+{
+    std::string sEngineMode = argv[1];
+    std::string sConfigFilePath = argv[2];
+    std::string sFixConfigFileName;        
+
+    SchedulerConfig cSchedulerConfig;
+    cSchedulerConfig.loadCfgFile(sConfigFilePath);
+
+    if(sEngineMode == "LIVE")
     {
-        ArgumentParser::parseArguments(argc, argv);
-        VelioSessionManager sessionManager;
-        sessionManager.initialize();
-        ManifestParser *mf = sessionManager.getManifestParser();
+        sFixConfigFileName = cSchedulerConfig.sFixConfigFileName;
 
-        sConfigFilePath.assign(mf->getProperty("LevelUp.configFile"));
+        QuickFixSchedulerFXMultiBook cQuickFixScheduler(cSchedulerConfig, true);
 
-        bool bIsLiveTrading;
-        string sIsSim = mf->getProperty("velio.model.backTestEnabled");
-        if(sIsSim.compare("true") == 0)
+        FIX::SessionSettings cFixSettings(sFixConfigFileName);
+        FIX::FileStoreFactory cFixStoreFactory(cFixSettings);
+        FIX::FileLogFactory cFixLogFactory(cFixSettings);
+
+        std::ifstream fstream( sFixConfigFileName.c_str() );
+        char buffer[1024];
+        std::string line;
+        while( fstream.getline(buffer, sizeof(buffer)) )
         {
-            bIsLiveTrading = false;
-        }
-        else
-        {
-            bIsLiveTrading = true;
-        }
-
-        if(bIsLiveTrading == true)
-        {
-            //adjust daily release folder date to today for production stats
-            ///scratch/levelup/productionportfolio/DailyRelease20220623/aur/levelup_01_aur/KOConfig.cfg
-
-            size_t pos = sConfigFilePath.find("DailyRelease");
-            string sBefore = sConfigFilePath.substr(0,pos+12);
-            string sAfter = sConfigFilePath.substr(pos+20);
-
-            time_t now = time(0);
-            struct tm  tstruct;
-            char buf[80];
-            tstruct = *localtime(&now);
-            strftime(buf, sizeof(buf), "%Y%m%d", &tstruct);
-
-            sConfigFilePath = sBefore + buf + sAfter;
-
-            cerr << sConfigFilePath << "\n";
-        }
-    
-        SchedulerConfig cSchedulerConfig;
-        cSchedulerConfig.loadCfgFile(sConfigFilePath);
-
-        string sIsConflationBook = mf->getProperty("velio.ibook.conflation");
-        if(sIsConflationBook.compare("true") == 0)
-        {
-            cSchedulerConfig.bUseOnConflationDone = true;
-        }
-        else
-        {
-            cSchedulerConfig.bUseOnConflationDone = false;
+            line = string_strip( buffer );
+            if( isComment(line) )
+            {
+              continue;
+            }
         }
 
-        KOFXModelFactoryMultiBook cKOModelFactory(cSchedulerConfig, bIsLiveTrading);
-        sessionManager.registerModelFactory(&cKOModelFactory);
-        sessionManager.registerBookFactory(&cKOModelFactory);
+        FIX::SocketInitiator cFixSocketInitiator(cQuickFixScheduler, cFixStoreFactory, cFixSettings, cFixLogFactory /*optional*/);
 
-        cerr << cSchedulerConfig.sDate << "\n";
+        cFixSocketInitiator.start();
+        
+        boost::posix_time::ptime cPrevTime = boost::posix_time::microsec_clock::local_time();
+        while(true)
+        {
+            boost::posix_time::ptime cNowTime = boost::posix_time::microsec_clock::local_time();
 
-        sessionManager.run();
+            int iPrevSec = cPrevTime.time_of_day().seconds();
+            int iNowSec = cNowTime.time_of_day().seconds();
+
+            cPrevTime = cNowTime;
+
+            if(iPrevSec != iNowSec)
+            {
+                cQuickFixScheduler.onTimer();
+            }
+
+            if(cQuickFixScheduler.bgetMarketDataSessionLoggedOn() == true)
+            {
+                if(cQuickFixScheduler.bgetMarketDataSubscribed() == false)
+                {
+                    // need to test reconnect and market data resubscription?
+                    cQuickFixScheduler.init();
+                }
+            }
+        
+            if(cQuickFixScheduler.bschedulerFinished())
+            {
+                break;
+            } 
+        }
+
+        cFixSocketInitiator.stop();
     }
     else
     {
-        sConfigFilePath = argv[2];
         SchedulerConfig cSchedulerConfig;
         cSchedulerConfig.loadCfgFile(sConfigFilePath);
 
-        KOScheduler cKOScheduler(sSimType, cSchedulerConfig);
-        cKOScheduler.setFXSim(true);
+        KOScheduler cKOScheduler(sEngineMode, cSchedulerConfig);
         if(cKOScheduler.init())
         {
-            cKOScheduler.run();         
+            cKOScheduler.run();
         }
         else
         {
-            cerr << "Failed to initialised KO Scheduler. No simulation running.\n";    
+            cerr << "Failed to initialised KO Scheduler. No simulation running.\n";
         }
     }
-
-	return 0;
+    
+    return 0;
 }

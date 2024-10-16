@@ -118,16 +118,19 @@ bool SchedulerBase::postCommonInit()
 
     loadScheduledManualActionsFile();
     loadScheduledSlotLiquidationFile();
-
+cerr << "a \n";
     registerTradeEngines();   
 
+cerr << "b \n";
     loadTodaysFigure(_cSchedulerCfg.sDate); 
 
+cerr << "c \n";
     for(vector<TradeEngineBasePtr>::iterator itr = _vTradeEngines.begin(); itr != _vTradeEngines.end(); itr++)
     {
         (*itr)->dayInit();
     }
 
+cerr << "d \n";
     return bResult;
 }
 
@@ -152,9 +155,10 @@ QuoteData* SchedulerBase::pregisterProduct(string sFullProductName, InstrumentTy
 
     pNewQuoteDataPtr->sRoot = _pStaticDataHandler->sGetRootSymbol(sFullProductName, eInstrumentType);
 
-    string sCurreny = _pStaticDataHandler->sGetCurrency(pNewQuoteDataPtr->sRoot, pNewQuoteDataPtr->sExchange);
-    string sContractDollarFXPair = sCurreny + "USD";
+    string sCurrency = _pStaticDataHandler->sGetCurrency(pNewQuoteDataPtr->sRoot, pNewQuoteDataPtr->sExchange);
+    string sContractDollarFXPair = sCurrency + "USD";
     pNewQuoteDataPtr->dRateToDollar = _pStaticDataHandler->dGetFXRate(sContractDollarFXPair);
+    pNewQuoteDataPtr->sCurrency = sCurrency;
     pNewQuoteDataPtr->dTickSize = _pStaticDataHandler->dGetTickSize(sFullProductName);
 
     pNewQuoteDataPtr->dTradingFee = _pStaticDataHandler->dGetTradingFee(pNewQuoteDataPtr->sRoot, pNewQuoteDataPtr->sExchange);
@@ -504,7 +508,7 @@ void SchedulerBase::registerTradeEngines()
             {
                 sEngineRunTimePath = sConfigFile.substr(0,iFound+1);
             }
-
+cerr << "1000 \n";
             // Reading in all the standard engine parameters
             string sDelimiter = "";
             isConfig >> sDelimiter;
@@ -515,6 +519,7 @@ void SchedulerBase::registerTradeEngines()
             string sTradingEndTime;
             bool bEngineConfigValid = true;
 
+cerr << "1001 \n";
             if(sDelimiter.compare("Engine") == 0)
             {
                 isConfig >> sEngineType;
@@ -539,6 +544,7 @@ void SchedulerBase::registerTradeEngines()
                 KOEpochTime cTradingEndTime = SystemClock::GetInstance()->cCreateKOEpochTimeFromCET(_cSchedulerCfg.sDate, sHour.c_str(), sMinute.c_str(), sSecond.c_str());
                 cTradingEndTime = cTradingEndTime;
 
+cerr << "1002 \n";
                 if(sEngineType.compare("SLSL") == 0)
                 {
                     pNewTradeEngine.reset(new SLSL(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType));
@@ -595,8 +601,10 @@ void SchedulerBase::registerTradeEngines()
                     }
                 }
 
+cerr << "1003 \n";
                 addNewEngineCall(pNewTradeEngine.get(), EngineEvent::RUN, cTradingStartTime);
                 addNewEngineCall(pNewTradeEngine.get(), EngineEvent::STOP, cTradingEndTime);
+cerr << "1004 \n";
             }
             else
             {
@@ -606,6 +614,7 @@ void SchedulerBase::registerTradeEngines()
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
             }
 
+cerr << "1005 \n";
             isConfig >> sDelimiter;
             if(sDelimiter.compare("Products") == 0)
             {
@@ -646,6 +655,7 @@ void SchedulerBase::registerTradeEngines()
 
             isConfig >> sDelimiter;
 
+cerr << "1006 \n";
             if(sDelimiter.compare("BaseSignal") == 0)
             {
                 pNewTradeEngine->readFromStream(isConfig);
@@ -658,6 +668,7 @@ void SchedulerBase::registerTradeEngines()
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
             }
 
+cerr << "1007 \n";
             if(bEngineConfigValid)
             {
                 _vTradeEngines.push_back(pNewTradeEngine);
@@ -668,6 +679,7 @@ void SchedulerBase::registerTradeEngines()
                 cStringStream << "Incorrect format for Config file " << sConfigFile << ". No engine is created";
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
             }
+cerr << "1008 \n";
         }
         else
         {

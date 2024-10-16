@@ -76,6 +76,7 @@ struct QuoteData
     double                          dRefPrice;
 
     double                          dRateToDollar;
+    string                          sCurrency;
 
     double                          dTradingFee;
 

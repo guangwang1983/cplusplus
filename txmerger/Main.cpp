@@ -260,7 +260,10 @@ int main(int argc, char *argv[])
 
         if(bUseMemDisk == true)
         {
-            sTempDir = "/mnt/ram-disk/" + random_string(10);
+            stringstream cStringStream;
+            cStringStream << "/mnt/ram-disk/" << random_string(10) << getpid();
+
+            sTempDir = cStringStream.str();
             string sCommand = "mkdir -p " + sTempDir;
             system(sCommand.c_str());
         }

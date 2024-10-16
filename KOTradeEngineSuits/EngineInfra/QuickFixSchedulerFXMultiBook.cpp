@@ -75,12 +75,15 @@ QuickFixSchedulerFXMultiBook::~QuickFixSchedulerFXMultiBook()
 
 void QuickFixSchedulerFXMultiBook::init()
 {
+cerr << "in init \n";
     for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
     {
         QuoteData* pNewQuoteDataPtr;
 
-        if(_cSchedulerCfg.vProducts[i].find("CFX") == 0)
+//        if(_cSchedulerCfg.vProducts[i].find("CFX") == 0)
+        if(_cSchedulerCfg.vProducts[i].find("XEUR") == 0)
         {
+cerr << "creating product multibook obecjt \n";
             pNewQuoteDataPtr = pregisterProduct(_cSchedulerCfg.vProducts[i], KO_FX);
             _vProductMultiBooks.insert(std::pair<unsigned int, vector<QuoteData>>(i, vector<QuoteData>()));
         }
@@ -89,6 +92,7 @@ void QuickFixSchedulerFXMultiBook::init()
             pNewQuoteDataPtr = pregisterProduct(_cSchedulerCfg.vProducts[i], KO_FUTURE);
         }
 
+cerr << "adding product " << _cSchedulerCfg.vProducts[i] << "\n";
         pNewQuoteDataPtr->iCID = i;
         pNewQuoteDataPtr->iProductExpoLimit = _cSchedulerCfg.vProductExpoLimit[i];
         pNewQuoteDataPtr->sTBProduct = _cSchedulerCfg.vTBProducts[i];
@@ -115,8 +119,10 @@ void QuickFixSchedulerFXMultiBook::init()
 
         _vFirstOrderTime.push_back(KOEpochTime());        
 
-        if(_cSchedulerCfg.vProducts[i].find("CFX") != 0)
+//        if(_cSchedulerCfg.vProducts[i].find("CFX") == std::string::npos)
+        if(_cSchedulerCfg.vProducts[i].find("XEUR") == std::string::npos)
         {
+cerr << "subscribing base product \n";
             FIX::Message message;
             message.getHeader().setField(8, "FIX.4.4");
             message.getHeader().setField(49, _sMDSenderCompID);
@@ -125,7 +131,7 @@ void QuickFixSchedulerFXMultiBook::init()
 
             message.setField(22, "9");
             message.setField(48, _cSchedulerCfg.vTBProducts[i]);
-            message.setField(15, "EUR"); // TODO: work out the currency ??
+            message.setField(15, pNewQuoteDataPtr->sCurrency);
 
             stringstream cStringStream;
             cStringStream << pNewQuoteDataPtr->iCID;
@@ -158,19 +164,26 @@ void QuickFixSchedulerFXMultiBook::init()
 
     for(unsigned int i = 0; i < _cSchedulerCfg.vFXSubProducts.size(); ++i)
     {
+cerr << "processing sub product " << _cSchedulerCfg.vFXSubProducts[i] << "\n";
         string sExchange = _cSchedulerCfg.vFXSubProducts[i].substr(0, _cSchedulerCfg.vFXSubProducts[i].rfind("."));
-        string root = _cSchedulerCfg.vFXSubProducts[i].substr(_cSchedulerCfg.vFXSubProducts[i].rfind("."));
+        string root = _cSchedulerCfg.vFXSubProducts[i].substr(_cSchedulerCfg.vFXSubProducts[i].rfind(".")+1);
+cerr << "sExchange " << sExchange << "\n";
+cerr << "root " << root << "\n";
         int iSubCID = -1;
         int iParentCID = -1;
 
-        for(unsigned int iCID = 0; iCID < _vContractQuoteDatas.size(); i++)
+cerr << "search sub product " << root << "\n";
+        for(unsigned int iCID = 0; iCID < _vContractQuoteDatas.size(); iCID++)
         {
-            if(_vContractQuoteDatas[iCID]->sProduct.find(root) != string::npos)
+cerr << "comparing against " << _vContractQuoteDatas[iCID]->sTBProduct << "\n";
+            if(_vContractQuoteDatas[iCID]->sTBProduct.find(root) != string::npos)
             {
+cerr << "found \n";
                 for(map<unsigned int, vector<QuoteData>>::iterator itr = _vProductMultiBooks.begin(); itr != _vProductMultiBooks.end(); itr++)
                 {
                     if(itr->first == iCID)
                     {
+cerr << " found subbook obecjt iCID is " << iCID << "\n";
                         // de-reference quote data object to create a copy
                         itr->second.push_back((*_vContractQuoteDatas[iCID]));
                         itr->second.back().sProduct = _cSchedulerCfg.vFXSubProducts[i];
@@ -187,6 +200,7 @@ void QuickFixSchedulerFXMultiBook::init()
 
         if(iSubCID == -1)
         {
+cerr << "cannot find main parent product \n";
             stringstream cLogStringStream;
             cLogStringStream << "Unable to match sub FX product" << _cSchedulerCfg.vFXSubProducts[i];
             ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cLogStringStream.str());
@@ -194,6 +208,7 @@ void QuickFixSchedulerFXMultiBook::init()
         }
         else
         {
+cerr << "subscribing sub product \n";
             FIX::Message message;
             message.getHeader().setField(8, "FIX.4.4");
             message.getHeader().setField(49, _sMDSenderCompID);
@@ -201,13 +216,21 @@ void QuickFixSchedulerFXMultiBook::init()
             message.getHeader().setField(35, "V");
 
             message.setField(22, "9");
-            message.setField(48, _cSchedulerCfg.vFXSubProducts[i]);
+           
+             //message.setField(48, _cSchedulerCfg.vFXSubProducts[i]);
+            string root = _cSchedulerCfg.vFXSubProducts[i].substr(_cSchedulerCfg.vFXSubProducts[i].rfind(".")+1);
+cerr << "TB root " << root << "\n";
+            message.setField(48, root);
+
             message.setField(15, "EUR"); // TODO: work out the currency ??
 
             stringstream cStringStream;
             cStringStream << "_" << iParentCID << "_" << iSubCID;
+cerr << "0.1 \n";
             message.setField(262, cStringStream.str());
-            message.setField(55, _cSchedulerCfg.vProducts[i]);
+cerr << "0.2 \n";
+            message.setField(55, _cSchedulerCfg.vProducts[iParentCID]);
+cerr << "0.3 \n";
             
             message.setField(263, "1"); // subcription type snapshot + updates
             message.setField(264, "1"); // tob only
@@ -221,22 +244,24 @@ void QuickFixSchedulerFXMultiBook::init()
             message.addGroup(cMDEntryGroup);
             cMDEntryGroup.set(FIX::MDEntryType('2'));
             message.addGroup(cMDEntryGroup);
-
+cerr << "1 \n";
             // number of requested instrument
             message.setField(146, "1");
 
             FIX::Session::sendToTarget(message, *_pMarketDataSessionID);
 
             stringstream cLogStringStream;
-            cLogStringStream << "Sending market data subscription request for sub FX product" << _cSchedulerCfg.vFXSubProducts[i] << " TB Code " << _cSchedulerCfg.vFXSubProducts[i] << ".";
-            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _cSchedulerCfg.vFXSubProducts[i], cLogStringStream.str());
+cerr << "2 \n";
+            cLogStringStream << "Sending market data subscription request for sub FX product " << _cSchedulerCfg.vFXSubProducts[i] << " TB Code " << _cSchedulerCfg.vFXSubProducts[i] << ".";
+            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _cSchedulerCfg.vProducts[iParentCID], cLogStringStream.str());
         }
     }
 
     _bMarketDataSubscribed = true;
-
+cerr << "3 \n";
     postCommonInit();
 
+cerr << "4 \n";
     if(_cSchedulerCfg.bLogMarketData)
     {
         _cSubBookMarketDataLogger.openFile(_cSchedulerCfg.sLogPath + "/SubBookMarketDataLog.out", true, true);
@@ -246,7 +271,9 @@ void QuickFixSchedulerFXMultiBook::init()
         _cSubBookMarketDataLogger.openFile(_cSchedulerCfg.sLogPath + "/SubBookMarketDataLog.out", false, true);
     }
 
+cerr << "5 \n";
     sortTimeEvent();
+cerr << "out init \n";
 }
 
 KOEpochTime QuickFixSchedulerFXMultiBook::cgetCurrentTime()
@@ -1017,24 +1044,14 @@ void QuickFixSchedulerFXMultiBook::onTimer()
     checkOrderState(cNewUpdateTime);
     SchedulerBase::wakeup(cNewUpdateTime);
     processTimeEvents(cNewUpdateTime);
+
+    _cSubBookMarketDataLogger.flush();
 }
 
 void QuickFixSchedulerFXMultiBook::onCreate(const SessionID& cSessionID)
 {
     string sSenderCompID = cSessionID.getSenderCompID();
-
-    if(sSenderCompID.find("MD") != std::string::npos)
-    {
-        stringstream cStringStream;
-        cStringStream << "Creating market data fix session";
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
-    }
-    else if(sSenderCompID.find("TR") != std::string::npos)
-    {
-        stringstream cStringStream;
-        cStringStream << "Creating order fix session";
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
-    }
+    cStringStream << "Creating fix session " << sSenderCompID;
 }
 
 void QuickFixSchedulerFXMultiBook::onLogon(const SessionID& cSessionID)
@@ -1138,6 +1155,16 @@ void QuickFixSchedulerFXMultiBook::onMessage(FIX44::Reject& cReject, const FIX::
         cStringStream << "Invalid order fix message. Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
+}
+
+void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataRequestReject& cReject, const FIX::SessionID& cSessionID)
+{
+    FIX::Text cText;
+    cReject.get(cText);
+
+    stringstream cStringStream;
+    cStringStream << "Market Data request rejected. Reason: " << cText;
+    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
 }
 
 void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExecutionReport, const FIX::SessionID& cSessionID)
@@ -1664,10 +1691,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(FIX44::BusinessMessageReject& cBusi
 void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject& cBusinessMessageReject, const FIX::SessionID& cSessionID)
 {
     std::cerr <<"received business messag reject \n";
-    FIX::BusinessRejectRefID cBusinessRejectRefID;
-    cBusinessMessageReject.get(cBusinessRejectRefID);
-    string sClientOrderID = cBusinessRejectRefID;
-
     FIX::Text cText;
     cBusinessMessageReject.get(cText);
     string sText = cText;
@@ -1675,8 +1698,18 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
     FIX::RefMsgType cRefMsgType;
     cBusinessMessageReject.get(cRefMsgType);
 
-    if(cRefMsgType == "D")
+    if(cRefMsgType ==  "V")
     {
+        stringstream cStringStream;
+        cStringStream << "Unable to register market data. Reason: " << cText;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    }
+    else if(cRefMsgType == "D")
+    {
+        FIX::BusinessRejectRefID cBusinessRejectRefID;
+        cBusinessMessageReject.get(cBusinessRejectRefID);
+        string sClientOrderID = cBusinessRejectRefID;
+
         bool bIsLiquidationOrder = false;
         bool bOrderFound = false;
         unsigned int iProductIdx = 0;
@@ -1783,7 +1816,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
     else
     {
         stringstream cStringStream;
-        cStringStream << "Unhandled business rejected received. Message type: " << cRefMsgType << " Pending ID: " << cBusinessRejectRefID << " Reason " << cText;
+        cStringStream << "Unhandled business rejected received. Message type: " << cRefMsgType << " Reason " << cText;
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
     }
 }

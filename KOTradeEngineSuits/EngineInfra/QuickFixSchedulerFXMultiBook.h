@@ -8,6 +8,7 @@
 #include "quickfix/fix44/BusinessMessageReject.h"
 #include "quickfix/fix44/Reject.h"
 #include "quickfix/fix44/MarketDataSnapshotFullRefresh.h"
+#include "quickfix/fix44/MarketDataRequestReject.h"
 #include "quickfix/fix44/OrderCancelReject.h"
 #include "quickfix/fix44/Logout.h"
 #include "SchedulerBase.h"
@@ -56,6 +57,7 @@ public:
     virtual void onMessage(const FIX44::BusinessMessageReject& cBusinessMessageReject, const FIX::SessionID& cSessionID);
     virtual void onMessage(const FIX44::OrderCancelReject& cOrderCancelReject, const FIX::SessionID& cSessionID);
     virtual void onMessage(const FIX44::Logout& cLogout, const FIX::SessionID& cSessionID);
+    virtual void onMessage(const FIX44::MarketDataRequestReject& cReject, const FIX::SessionID& cSessionID);
     
     virtual void onMessage(FIX44::BusinessMessageReject& cBusinessMessageReject, const FIX::SessionID& cSessionID);
     virtual void onMessage(FIX44::Reject& cReject, const FIX::SessionID& cSessionID);

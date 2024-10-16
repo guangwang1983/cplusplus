@@ -105,7 +105,7 @@ cerr << "subscribing " << _cSchedulerCfg.vProducts[i] << "\n";
 
         message.setField(22, "9");
         message.setField(48, _cSchedulerCfg.vTBProducts[i]);
-        message.setField(15, "EUR"); // TODO: work out the currency ??
+        message.setField(15, pNewQuoteDataPtr->sCurrency);
 
         stringstream cStringStream;
         cStringStream << pNewQuoteDataPtr->iCID;
@@ -806,19 +806,7 @@ void QuickFixScheduler::onTimer()
 void QuickFixScheduler::onCreate(const SessionID& cSessionID)
 {
     string sSenderCompID = cSessionID.getSenderCompID();
-
-    if(sSenderCompID.find("MD") != std::string::npos)
-    {
-        stringstream cStringStream;
-        cStringStream << "Creating market data fix session";
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
-    }
-    else if(sSenderCompID.find("TR") != std::string::npos) 
-    {
-        stringstream cStringStream;
-        cStringStream << "Creating order fix session";
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
-    }
+    cStringStream << "Creating fix session " << sSenderCompID;
 }
 
 void QuickFixScheduler::onLogon(const SessionID& cSessionID)
@@ -922,6 +910,16 @@ void QuickFixScheduler::onMessage(FIX44::Reject& cReject, const FIX::SessionID& 
         cStringStream << "Invalid order fix message. Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
+}
+
+void QuickFixScheduler::onMessage(const FIX44::MarketDataRequestReject& cReject, const FIX::SessionID& cSessionID)
+{
+    FIX::Text cText;
+    cReject.get(cText);
+
+    stringstream cStringStream;
+    cStringStream << "Market Data request rejected. Reason: " << cText;
+    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
 }
 
 void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport, const FIX::SessionID& cSessionID)
@@ -1331,9 +1329,6 @@ void QuickFixScheduler::onMessage(FIX44::BusinessMessageReject& cBusinessMessage
 void QuickFixScheduler::onMessage(const FIX44::BusinessMessageReject& cBusinessMessageReject, const FIX::SessionID& cSessionID)
 {
     std::cerr <<"received business messag reject \n";
-    FIX::BusinessRejectRefID cBusinessRejectRefID;
-    cBusinessMessageReject.get(cBusinessRejectRefID);
-    string sClientOrderID = cBusinessRejectRefID;
 
     FIX::Text cText;
     cBusinessMessageReject.get(cText);
@@ -1342,8 +1337,18 @@ void QuickFixScheduler::onMessage(const FIX44::BusinessMessageReject& cBusinessM
     FIX::RefMsgType cRefMsgType;
     cBusinessMessageReject.get(cRefMsgType);
 
-    if(cRefMsgType == "D")
+    if(cRefMsgType ==  "V")
     {
+        stringstream cStringStream;
+        cStringStream << "Unable to register market data. Reason: " << cText;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    }
+    else if(cRefMsgType == "D")
+    {
+        FIX::BusinessRejectRefID cBusinessRejectRefID;
+        cBusinessMessageReject.get(cBusinessRejectRefID);
+        string sClientOrderID = cBusinessRejectRefID;
+
         bool bIsLiquidationOrder = false;
         bool bOrderFound = false;
         unsigned int iProductIdx = 0;
@@ -1450,7 +1455,7 @@ void QuickFixScheduler::onMessage(const FIX44::BusinessMessageReject& cBusinessM
     else
     {
         stringstream cStringStream;
-        cStringStream << "Unhandled business rejected received. Message type: " << cRefMsgType << " Pending ID: " << cBusinessRejectRefID << " Reason " << cText;
+        cStringStream << "Unhandled business rejected received. Message type: " << cRefMsgType << " Reason " << cText;
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
     }
 }
