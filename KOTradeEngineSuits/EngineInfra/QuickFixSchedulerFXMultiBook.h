@@ -62,12 +62,17 @@ public:
     virtual void onMessage(FIX44::BusinessMessageReject& cBusinessMessageReject, const FIX::SessionID& cSessionID);
     virtual void onMessage(FIX44::Reject& cReject, const FIX::SessionID& cSessionID);
 
-    bool bgetMarketDataSessionLoggedOn();
-    bool bgetMarketDataSubscribed();
-    bool bgetOrderSessionLoggedOn();
-    bool bgetOrderSubmitted();
-
 private:
+   
+    struct SessionDetails
+    {
+        const FIX::SessionID* pFixSessionID;
+        string sSenderCompID;
+        bool bIsLoggedOn;
+    };
+
+    void checkProductsForPriceSubscription();
+
     void updateOrderPrice(unsigned int iProductIdx);
     void updateLiquidationOrderPrice(unsigned int iProductIdx);    
 
@@ -84,10 +89,10 @@ private:
     bool _bIsLiveTrading;
     bool _bScheduleFinished;
 
-    const FIX::SessionID* _pMarketDataSessionID;
+    vector<SessionDetails> _vMDSessions;
     const FIX::SessionID* _pOrderSessionID;
-    string _sMDSenderCompID;
     string _sOrderSenderCompID;
+    bool _bIsOrderSessionLoggedOn;
 
     vector<vector<KOOrderPtr>> _vProductOrderList;
     vector<int> _vProductDesiredPos;
@@ -102,14 +107,7 @@ private:
     map<unsigned int, vector<QuoteData>> _vProductMultiBooks;
 
     long _iTotalNumMsg;
-
-    bool _bMarketDataSessionLoggedOn;
-    bool _bOrderSessionLoggedOn;
-    bool _bMarketDataSubscribed;
-    bool _bOrderSubmitted;
-
-    string _sOrderID;
-    int _iTimeIndex;
+    long _iNumTimerCallsReceived;
 
     SimpleLogger _cSubBookMarketDataLogger;
 };

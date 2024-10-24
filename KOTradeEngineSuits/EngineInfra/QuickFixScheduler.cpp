@@ -34,17 +34,10 @@ QuickFixScheduler::QuickFixScheduler(SchedulerConfig &cfg, bool bIsLiveTrading)
     _bIsLiveTrading =  bIsLiveTrading;
     _bScheduleFinished = false;
 
+    _iNumTimerCallsReceived = 0;
     _iTotalNumMsg = 0;
 
-    _bMarketDataSessionLoggedOn= false;
-    _bOrderSessionLoggedOn= false;
-    _bMarketDataSubscribed = false;
-    _bOrderSubmitted = false;
-
-    _iTimeIndex = 0;
-
-    _sOrderSenderCompID = "";
-    _sMDSenderCompID = "";
+    _bIsOrderSessionLoggedOn= false;
 
     preCommonInit();
 }
@@ -56,10 +49,17 @@ QuickFixScheduler::~QuickFixScheduler()
 
 void QuickFixScheduler::init()
 {
-cerr << "init \n";
+    stringstream cStringStream;
+    cStringStream << "Initialising quick fix scheduler";
+    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+
     for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
     {
-cerr << "subscribing " << _cSchedulerCfg.vProducts[i] << "\n";
+        cStringStream.str("");
+        cStringStream.clear();
+        cStringStream << "Creating product " << _cSchedulerCfg.vProducts[i];
+        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+
         QuoteData* pNewQuoteDataPtr;
 
         if(_cSchedulerCfg.vProducts[i].find("CFX") == 0)
@@ -78,6 +78,9 @@ cerr << "subscribing " << _cSchedulerCfg.vProducts[i] << "\n";
 
         pNewQuoteDataPtr->iProductMaxRisk = _cSchedulerCfg.vProductMaxRisk[i];
         pNewQuoteDataPtr->iProductExpoLimit = _cSchedulerCfg.vProductExpoLimit[i];
+
+        pNewQuoteDataPtr->bDataSubscribed = false;
+
         _vProductOrderList.push_back(vector<KOOrderPtr>());
         _vProductDesiredPos.push_back(0);
         _vProductPos.push_back(0);
@@ -97,48 +100,103 @@ cerr << "subscribing " << _cSchedulerCfg.vProducts[i] << "\n";
 
         _vFirstOrderTime.push_back(KOEpochTime());        
 
-        FIX::Message message;
-        message.getHeader().setField(8, "FIX.4.4");
-        message.getHeader().setField(49, _sMDSenderCompID);
-        message.getHeader().setField(56, "TBRICKS");
-        message.getHeader().setField(35, "V");
-
-        message.setField(22, "9");
-        message.setField(48, _cSchedulerCfg.vTBProducts[i]);
-        message.setField(15, pNewQuoteDataPtr->sCurrency);
-
-        stringstream cStringStream;
-        cStringStream << pNewQuoteDataPtr->iCID;
-        message.setField(262, cStringStream.str());
-        message.setField(55, _cSchedulerCfg.vProducts[i]);
-        
-        message.setField(263, "1"); // subcription type snapshot + updates
-        message.setField(264, "1"); // tob only
-        message.setField(265, "0"); // full refresh
-
-        // number requested data field - bid size|bid|offer|offer size
-        FIX44::MarketDataRequest::NoMDEntryTypes cMDEntryGroup;
-        cMDEntryGroup.set(FIX::MDEntryType('0'));
-        message.addGroup(cMDEntryGroup);
-        cMDEntryGroup.set(FIX::MDEntryType('1'));
-        message.addGroup(cMDEntryGroup);
-        cMDEntryGroup.set(FIX::MDEntryType('2'));
-        message.addGroup(cMDEntryGroup);
-
-        // number of requested instrument
-        message.setField(146, "1");
-        FIX::Session::sendToTarget(message, *_pMarketDataSessionID);
-
-        stringstream cLogStringStream;
-        cLogStringStream << "Sending market data subscription request for " << _cSchedulerCfg.vProducts[i] << " TB Code " << _cSchedulerCfg.vTBProducts[i] << ".";
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", pNewQuoteDataPtr->sProduct, cLogStringStream.str());
     }
-
-    _bMarketDataSubscribed = true;
 
     postCommonInit();
 
     sortTimeEvent();
+}
+
+void QuickFixScheduler::checkProductsForPriceSubscription()
+{
+    for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
+    {
+        if(_vContractQuoteDatas[i]->bDataSubscribed == false)
+        {
+            string sTBExchange = "NONE";
+            if(_vContractQuoteDatas[i]->sExchange == "XTMX" || _vContractQuoteDatas[i]->sExchange == "XASX")
+            {
+                sTBExchange = "ACTIV";
+            }       
+            else if(_vContractQuoteDatas[i]->sExchange == "XCME")
+            {
+                sTBExchange = "CME";
+            } 
+            else if(_vContractQuoteDatas[i]->sExchange == "XEUR")
+            {
+                sTBExchange = "EUREX";
+            } 
+            else if(_vContractQuoteDatas[i]->sExchange == "XLIF")
+            {
+                sTBExchange = "ICE";
+            } 
+
+            int iMDSessionsIdx = 0;
+            const FIX::SessionID* pMarketDataSessionID = NULL;
+            string sSenderCompID = "";
+            bool bIsLoggedOn = false;
+            for(;iMDSessionsIdx < _vMDSessions.size();iMDSessionsIdx++)
+            {
+                if(_vMDSessions[iMDSessionsIdx].sSenderCompID.find(sTBExchange) != std::string::npos)
+                {
+                    pMarketDataSessionID = _vMDSessions[iMDSessionsIdx].pFixSessionID;
+                    sSenderCompID = _vMDSessions[iMDSessionsIdx].sSenderCompID;
+                    bIsLoggedOn = _vMDSessions[iMDSessionsIdx].bIsLoggedOn;
+                    break;
+                }
+            }
+
+            if(pMarketDataSessionID == NULL)
+            {
+                stringstream cStringStream;
+                cStringStream << "Cannot find market data fix session for " << _vContractQuoteDatas[i]->sExchange;
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+            }
+            else
+            {
+                if(bIsLoggedOn == true)
+                {
+                    FIX::Message message;
+                    message.getHeader().setField(8, "FIX.4.4");
+                    message.getHeader().setField(49, _vMDSessions[iMDSessionsIdx].sSenderCompID);
+                    message.getHeader().setField(56, "TBRICKS");
+                    message.getHeader().setField(35, "V");
+
+                    message.setField(22, "9");
+                    message.setField(48, _cSchedulerCfg.vTBProducts[i]);
+                    message.setField(15, _vContractQuoteDatas[i]->sCurrency);
+
+                    stringstream cStringStream;
+                    cStringStream << _vContractQuoteDatas[i]->iCID;
+                    message.setField(262, cStringStream.str());
+                    message.setField(55, _cSchedulerCfg.vProducts[i]);
+                    
+                    message.setField(263, "1"); // subcription type snapshot + updates
+                    message.setField(264, "1"); // tob only
+                    message.setField(265, "0"); // full refresh
+
+                    // number requested data field - bid size|bid|offer|offer size
+                    FIX44::MarketDataRequest::NoMDEntryTypes cMDEntryGroup;
+                    cMDEntryGroup.set(FIX::MDEntryType('0'));
+                    message.addGroup(cMDEntryGroup);
+                    cMDEntryGroup.set(FIX::MDEntryType('1'));
+                    message.addGroup(cMDEntryGroup);
+                    cMDEntryGroup.set(FIX::MDEntryType('2'));
+                    message.addGroup(cMDEntryGroup);
+
+                    // number of requested instrument
+                    message.setField(146, "1");
+                    FIX::Session::sendToTarget(message, *pMarketDataSessionID);
+
+                    stringstream cLogStringStream;
+                    cLogStringStream << "Sending market data subscription request for " << _cSchedulerCfg.vProducts[i] << " TB Code " << _cSchedulerCfg.vTBProducts[i] << ".";
+                    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cLogStringStream.str());
+
+                    _vContractQuoteDatas[i]->bDataSubscribed = true;
+                }
+            }
+        }
+    }
 }
 
 KOEpochTime QuickFixScheduler::cgetCurrentTime()
@@ -423,7 +481,22 @@ void QuickFixScheduler::submitOrderBestPrice(unsigned int iProductIdx, long iQty
     // set instrument
     message.setField(55, _vContractQuoteDatas[iProductIdx]->sProduct);
     message.setField(48, _vContractQuoteDatas[iProductIdx]->sTBProduct);
-    message.setField(22, "TB");
+    message.setField(22, "9");
+
+    if(_vContractQuoteDatas[iProductIdx]->sExchange == "XEUR")
+    {
+        message.setField(207, "XEUR");
+    }
+    else if(_vContractQuoteDatas[iProductIdx]->sExchange == "XLIF")
+    {
+        message.setField(207, "IFLL");
+    }
+    else if(_vContractQuoteDatas[iProductIdx]->sExchange == "XEUR")
+    {
+        message.setField(207, "XCME");
+    }
+
+    message.setField(377, "N");
 
     if(iQty > 0)
     {
@@ -435,7 +508,7 @@ void QuickFixScheduler::submitOrderBestPrice(unsigned int iProductIdx, long iQty
     }
 
     stringstream cQtyStream;
-    cQtyStream << iQty;
+    cQtyStream << abs(iQty);
     message.setField(38, cQtyStream.str());
 
     double dOrderPrice = icalcualteOrderPrice(iProductIdx, 0, iQty, false, bIsLiquidation) * _vContractQuoteDatas[iProductIdx]->dTickSize;
@@ -452,7 +525,7 @@ void QuickFixScheduler::submitOrderBestPrice(unsigned int iProductIdx, long iQty
     }
     else
     {
-        message.setField(59, "0"); // TODO: need to test if orders get cancelled when the engine dies
+        message.setField(59, "0"); 
     }
 
     stringstream cStringStream;
@@ -469,37 +542,39 @@ void QuickFixScheduler::submitOrderBestPrice(unsigned int iProductIdx, long iQty
     cStringStream.str("");
     cStringStream.clear();
 
-    // TODO: check if session is up. Test what happens when we do send when the session is down
-    if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
+    if(_bIsOrderSessionLoggedOn == true)
     {
-        cStringStream << "Order submitted";
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
-
-        if(bIsLiquidation == false)
+        if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
         {
-            _vProductOrderList[iProductIdx].push_back(pOrder);
+            cStringStream << "Order submitted";
+            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+
+            if(bIsLiquidation == false)
+            {
+                _vProductOrderList[iProductIdx].push_back(pOrder);
+            }
+            else
+            {
+                _vProductLiquidationOrderList[iProductIdx].push_back(pOrder);
+
+            }
+
+            pOrder->_eOrderState =  KOOrder::PENDINGCREATION;
+            pOrder->_cPendingRequestTime = cgetCurrentTime();
+            pOrder->_qOrderMessageHistory.push_back(cgetCurrentTime());
+
+            _iTotalNumMsg = _iTotalNumMsg + 1;
         }
         else
         {
-            _vProductLiquidationOrderList[iProductIdx].push_back(pOrder);
-
-        }
-
-        pOrder->_eOrderState =  KOOrder::PENDINGCREATION;
-        pOrder->_cPendingRequestTime = cgetCurrentTime();
-        pOrder->_qOrderMessageHistory.push_back(cgetCurrentTime());
-
-        _iTotalNumMsg = _iTotalNumMsg + 1;
-    }
-    else
-    {
-        cStringStream << "Failed to submit order";
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
-
-        if(_vLastOrderError[iProductIdx] != cStringStream.str())
-        {
-            _vLastOrderError[iProductIdx] = cStringStream.str();
+            cStringStream << "Failed to submit order";
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+
+            if(_vLastOrderError[iProductIdx] != cStringStream.str())
+            {
+                _vLastOrderError[iProductIdx] = cStringStream.str();
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+            }
         }
     }
 }
@@ -524,30 +599,33 @@ void QuickFixScheduler::deleteOrder(KOOrderPtr pOrder)
         cStringStream.str("");
         cStringStream.clear();
 
-        if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
+        if(_bIsOrderSessionLoggedOn == true)
         {
-            pOrder->_eOrderState = KOOrder::PENDINGDELETE;
-            pOrder->_cPendingRequestTime = cgetCurrentTime();
-            pOrder->_sPendingOrderID = sNewOrderID;
-            cStringStream << "Order delete submitted. \n";
-            ErrorHandler::GetInstance()->newInfoMsg("0", pOrder->_sAccount, pOrder->sgetOrderProductName(), cStringStream.str());
-            cStringStream.str("");
-            cStringStream.clear();
-
-            _iTotalNumMsg = _iTotalNumMsg + 1;
-        }
-        else
-        {
-            cStringStream << "Failed to submit order delete for Order TB ID " << pOrder->_sTBOrderID;
-            if(_vLastOrderError[pOrder->_iCID] != cStringStream.str())
+            if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
             {
-                _vLastOrderError[pOrder->_iCID] = cStringStream.str();
-                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-            }
-            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+                pOrder->_eOrderState = KOOrder::PENDINGDELETE;
+                pOrder->_cPendingRequestTime = cgetCurrentTime();
+                pOrder->_sPendingOrderID = sNewOrderID;
+                cStringStream << "Order delete submitted. \n";
+                ErrorHandler::GetInstance()->newInfoMsg("0", pOrder->_sAccount, pOrder->sgetOrderProductName(), cStringStream.str());
+                cStringStream.str("");
+                cStringStream.clear();
 
-            cStringStream.str("");
-            cStringStream.clear();
+                _iTotalNumMsg = _iTotalNumMsg + 1;
+            }
+            else
+            {
+                cStringStream << "Failed to submit order delete for Order TB ID " << pOrder->_sTBOrderID;
+                if(_vLastOrderError[pOrder->_iCID] != cStringStream.str())
+                {
+                    _vLastOrderError[pOrder->_iCID] = cStringStream.str();
+                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                }
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+
+                cStringStream.str("");
+                cStringStream.clear();
+            }
         }
     }
 }
@@ -576,9 +654,18 @@ void QuickFixScheduler::amendOrder(KOOrderPtr pOrder, long iQty, long iPriceInTi
         string sNewOrderID = sgetNextFixOrderID();
         message.setField(11, sNewOrderID);
         message.setField(41, pOrder->_sConfirmedOrderID);
+    
+        if(iQty > 0)
+        {
+            message.setField(54, "1");
+        }
+        else if(iQty < 0)
+        {
+            message.setField(54, "2");
+        }
      
         stringstream cQtyStream;
-        cQtyStream << iNewQty;
+        cQtyStream << abs(iNewQty);
         message.setField(38, cQtyStream.str());
 
         stringstream cPriceStream;
@@ -593,33 +680,36 @@ void QuickFixScheduler::amendOrder(KOOrderPtr pOrder, long iQty, long iPriceInTi
         cStringStream.str("");
         cStringStream.clear(); 
 
-        if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
+        if(_bIsOrderSessionLoggedOn == true)
         {
-            pOrder->_sPendingOrderID = sNewOrderID;
-            pOrder->_eOrderState = KOOrder::PENDINGCHANGE;
-            pOrder->_cPendingRequestTime = cgetCurrentTime();
-            pOrder->_qOrderMessageHistory.push_back(cgetCurrentTime());
-
-            cStringStream << "Order amendment submitted. \n";
-            ErrorHandler::GetInstance()->newInfoMsg("0", pOrder->_sAccount, pOrder->sgetOrderProductName(), cStringStream.str());
-            cStringStream.str("");
-            cStringStream.clear();
-
-            _iTotalNumMsg = _iTotalNumMsg + 1;
-        }
-        else
-        {
-            cStringStream << "Failed to submit amendment for Order TB ID " << pOrder->_sTBOrderID;
-
-            if(_vLastOrderError[pOrder->_iCID] != cStringStream.str())
+            if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
             {
-                _vLastOrderError[pOrder->_iCID] = cStringStream.str();
-                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-            }
-            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+                pOrder->_sPendingOrderID = sNewOrderID;
+                pOrder->_eOrderState = KOOrder::PENDINGCHANGE;
+                pOrder->_cPendingRequestTime = cgetCurrentTime();
+                pOrder->_qOrderMessageHistory.push_back(cgetCurrentTime());
 
-            cStringStream.str("");
-            cStringStream.clear();
+                cStringStream << "Order amendment submitted. \n";
+                ErrorHandler::GetInstance()->newInfoMsg("0", pOrder->_sAccount, pOrder->sgetOrderProductName(), cStringStream.str());
+                cStringStream.str("");
+                cStringStream.clear();
+
+                _iTotalNumMsg = _iTotalNumMsg + 1;
+            }
+            else
+            {
+                cStringStream << "Failed to submit amendment for Order TB ID " << pOrder->_sTBOrderID;
+
+                if(_vLastOrderError[pOrder->_iCID] != cStringStream.str())
+                {
+                    _vLastOrderError[pOrder->_iCID] = cStringStream.str();
+                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                }
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+
+                cStringStream.str("");
+                cStringStream.clear();
+            }
         }
     }
 }
@@ -801,12 +891,42 @@ void QuickFixScheduler::onTimer()
     checkOrderState(cNewUpdateTime);
     SchedulerBase::wakeup(cNewUpdateTime);
     processTimeEvents(cNewUpdateTime);
+
+    _iNumTimerCallsReceived = _iNumTimerCallsReceived + 1; 
+
+    if(_iNumTimerCallsReceived == 2)
+    {
+cerr << cNewUpdateTime.igetPrintable() << " check product for price subscription \n";
+        checkProductsForPriceSubscription();
+    }
+    else if((int)(cNewUpdateTime.igetPrintable() / 1000000) % 10 == 0)
+    {
+cerr << cNewUpdateTime.igetPrintable()  << " check product for price subscription \n";
+        checkProductsForPriceSubscription();
+    }
 }
 
 void QuickFixScheduler::onCreate(const SessionID& cSessionID)
 {
     string sSenderCompID = cSessionID.getSenderCompID();
+
+    if(sSenderCompID.find("MD") != std::string::npos)
+    {
+        _vMDSessions.push_back(SessionDetails());
+        _vMDSessions.back().pFixSessionID = &cSessionID;
+        _vMDSessions.back().sSenderCompID = sSenderCompID;
+        _vMDSessions.back().bIsLoggedOn = false;
+    }
+    else if(sSenderCompID.find("TR") != std::string::npos)
+    {
+        _pOrderSessionID = &cSessionID;
+        _sOrderSenderCompID = sSenderCompID;
+        _bIsOrderSessionLoggedOn = false;
+    }
+
+    stringstream cStringStream;
     cStringStream << "Creating fix session " << sSenderCompID;
+    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
 }
 
 void QuickFixScheduler::onLogon(const SessionID& cSessionID)
@@ -815,28 +935,29 @@ void QuickFixScheduler::onLogon(const SessionID& cSessionID)
 
     if(sSenderCompID.find("MD") != std::string::npos)
     {
-        _pMarketDataSessionID = &cSessionID;
-        _sMDSenderCompID = sSenderCompID;
-        stringstream cStringStream;
-        cStringStream << "Logged on to market data fix session";
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
-        _bMarketDataSessionLoggedOn = true;
+        for(int i = 0; i < _vMDSessions.size(); i++)
+        {
+            if(_vMDSessions[i].sSenderCompID == sSenderCompID)
+            {
+                _vMDSessions[i].bIsLoggedOn = true;
+                stringstream cStringStream;
+                cStringStream << "Logged on to market data fix session " << sSenderCompID;
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+                break;
+            }
+        }
     }
     else if(sSenderCompID.find("TR") != std::string::npos)
     {
-        _pOrderSessionID = &cSessionID;
-        _sOrderSenderCompID = sSenderCompID;
+        _bIsOrderSessionLoggedOn = true;
         stringstream cStringStream;
-        cStringStream << "Logged on to order fix session";
+        cStringStream << "Logged on to order fix session " << _sOrderSenderCompID;
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
-        _bOrderSessionLoggedOn = true;
     }
 }
 
 void QuickFixScheduler::onLogout(const SessionID&)
 {
-    // TODO: delete all existing orders on engine dying?
-    // TODO: handling exising orders on re-connect
 }
 
 void QuickFixScheduler::toAdmin(Message& cMessage, const SessionID& cSessionID)
@@ -876,18 +997,26 @@ void QuickFixScheduler::onMessage(const FIX44::Logout& cLogout, const FIX::Sessi
     cLogout.get(cText);
 
     string sSenderCompID = cSessionID.getSenderCompID();
+
     if(sSenderCompID.find("MD") != std::string::npos)
     {
-        _bMarketDataSessionLoggedOn = false;
-        stringstream cStringStream;
-        cStringStream << "Market data fix session disconnected. Reason: " << cText;
-        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+        for(int i = 0; i < _vMDSessions.size(); i++)
+        {
+            if(_vMDSessions[i].sSenderCompID == sSenderCompID)
+            {
+                _vMDSessions[i].bIsLoggedOn = false;
+                stringstream cStringStream;
+                cStringStream << "Logged out from market data fix session " << sSenderCompID << ". Reason: " << cText;
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                break;
+            }
+        }
     }
     else if(sSenderCompID.find("TR") != std::string::npos)
     {
+        _bIsOrderSessionLoggedOn = false;
         stringstream cStringStream;
-        _bOrderSessionLoggedOn = true;
-        cStringStream << "Order fix session disconneceted. Reason: " << cText;
+        cStringStream << "Logged out from order fix session " << _sOrderSenderCompID << ". Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
 }
@@ -901,13 +1030,13 @@ void QuickFixScheduler::onMessage(FIX44::Reject& cReject, const FIX::SessionID& 
     if(sSenderCompID.find("MD") != std::string::npos)
     {
         stringstream cStringStream;
-        cStringStream << "Invalid market data fix message. Reason: " << cText;
+        cStringStream << "Cannot translate server market data fix message. Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
     else if(sSenderCompID.find("TR") != std::string::npos)
     {
         stringstream cStringStream;
-        cStringStream << "Invalid order fix message. Reason: " << cText;
+        cStringStream << "Cannot translate server order fix message. Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
 }
@@ -937,6 +1066,10 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
     FIX::OrdStatus cOrderStatus;
     cExecutionReport.get(cOrderStatus);
     char charOrderStatus = cOrderStatus;
+
+    FIX::ExecType cExecType;
+    cExecutionReport.get(cExecType);
+    char charExecType = cExecType;
 
     bool bIsLiquidationOrder = false;
     bool bOrderFound = false;
@@ -1015,12 +1148,12 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
         long iRemainQty = atoi(cExecutionReport.getField(151).c_str());
         pOrderToBeUpdated->_iOrderRemainQty = iRemainQty;
 
-        if(charOrderStatus == 'A')
+        if(charExecType == 'A')
         {
             pOrderToBeUpdated->_sTBOrderID = sTBOrderID;
         }
 
-        if(charOrderStatus == '1' or charOrderStatus == '2') // order filled
+        if(charExecType == 'F') // order filled
         {
             if(pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGCREATION)
             {
@@ -1067,7 +1200,6 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
             }
 
             _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iAdjustedFillQty, dFillPrice, bIsLiquidationOrder);
-
             if(iRemainQty == 0)
             {
                 cStringStream << "Order Fully Filled - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << ".";
@@ -1080,10 +1212,18 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
                 pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
         }
-        else if(charOrderStatus == '0') // order accepted
+        else if(charExecType == '0' || charExecType == '5') // order accepted
         {
+            long iSide = atoi(cExecutionReport.getField(54).c_str());
             long iOrgQty = atoi(cExecutionReport.getField(38).c_str());
             long iRemainQty = atoi(cExecutionReport.getField(151).c_str());
+
+            if(iSide == 2)
+            {
+                iOrgQty = iOrgQty * -1;
+                iRemainQty = iRemainQty * -1;
+            }
+
             double dOrderPrice = atoi(cExecutionReport.getField(44).c_str());
 
             pOrderToBeUpdated->_iOrderOrgQty = iOrgQty;
@@ -1118,7 +1258,7 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
             pOrderToBeUpdated->_sConfirmedOrderID = pOrderToBeUpdated->_sPendingOrderID; 
             pOrderToBeUpdated->_eOrderState = KOOrder::ACTIVE;
         }
-        else if(charOrderStatus == '3' || charOrderStatus == '4' || charOrderStatus == 'C') // order cancelled
+        else if(charExecType == '3' || charExecType == '4' || charExecType == 'C') // order cancelled
         {
             if(pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGDELETE || pOrderToBeUpdated->bgetIsIOC())
             {
@@ -1150,7 +1290,7 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
                 pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
         }
-        else if(charOrderStatus == '8') // order rejected
+        else if(charExecType == '8') // order rejected
         {
             FIX::Text cText;
             cExecutionReport.get(cText);
@@ -1190,10 +1330,10 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
         }
         else
         {
-            if(charOrderStatus != 'A' && charOrderStatus != '6')
+            if(charExecType != 'A' && charExecType != '6' && charExecType != 'E')
             {
                 stringstream cStringStream;
-                cStringStream << "Unkown last order state " << charOrderStatus << " for order TB ID " << sTBOrderID;
+                cStringStream << "Unknown execution type " << charExecType << " for order TB ID " << sTBOrderID;
 
                 if(_vLastOrderError[iProductIdx] != cStringStream.str())
                 {
@@ -1282,26 +1422,29 @@ void QuickFixScheduler::onMessage(const FIX44::MarketDataSnapshotFullRefresh& cM
         }
     }
 
-    if(_vContractQuoteDatas[iCID]->iPrevBidInTicks != _vContractQuoteDatas[iCID]->iBestBidInTicks || _vContractQuoteDatas[iCID]->iPrevAskInTicks != _vContractQuoteDatas[iCID]->iBestAskInTicks || _vContractQuoteDatas[iCID]->iPrevBidSize != _vContractQuoteDatas[iCID]->iBidSize || _vContractQuoteDatas[iCID]->iPrevAskSize != _vContractQuoteDatas[iCID]->iAskSize || iLastTradeSize != 0)
+    if(_vContractQuoteDatas[iCID]->iBidSize != 0 && _vContractQuoteDatas[iCID]->iAskSize != 0)
     {
-        double dWeightedMidInTicks;
-        if(_vContractQuoteDatas[iCID]->iBestAskInTicks - _vContractQuoteDatas[iCID]->iBestBidInTicks != 1 || (_vContractQuoteDatas[iCID]->iBidSize + _vContractQuoteDatas[iCID]->iAskSize == 0))
+        if(_vContractQuoteDatas[iCID]->iPrevBidInTicks != _vContractQuoteDatas[iCID]->iBestBidInTicks || _vContractQuoteDatas[iCID]->iPrevAskInTicks != _vContractQuoteDatas[iCID]->iBestAskInTicks || _vContractQuoteDatas[iCID]->iPrevBidSize != _vContractQuoteDatas[iCID]->iBidSize || _vContractQuoteDatas[iCID]->iPrevAskSize != _vContractQuoteDatas[iCID]->iAskSize || iLastTradeSize != 0)
         {
-            dWeightedMidInTicks = (double)(_vContractQuoteDatas[iCID]->iBestAskInTicks + _vContractQuoteDatas[iCID]->iBestBidInTicks) / 2;
-        }
-        else
-        {
-            dWeightedMidInTicks = (double)_vContractQuoteDatas[iCID]->iBestBidInTicks + (double)_vContractQuoteDatas[iCID]->iBidSize / (double)(_vContractQuoteDatas[iCID]->iBidSize + _vContractQuoteDatas[iCID]->iAskSize);
-        }
+            double dWeightedMidInTicks;
+            if(_vContractQuoteDatas[iCID]->iBestAskInTicks - _vContractQuoteDatas[iCID]->iBestBidInTicks != 1 || (_vContractQuoteDatas[iCID]->iBidSize + _vContractQuoteDatas[iCID]->iAskSize == 0))
+            {
+                dWeightedMidInTicks = (double)(_vContractQuoteDatas[iCID]->iBestAskInTicks + _vContractQuoteDatas[iCID]->iBestBidInTicks) / 2;
+            }
+            else
+            {
+                dWeightedMidInTicks = (double)_vContractQuoteDatas[iCID]->iBestBidInTicks + (double)_vContractQuoteDatas[iCID]->iBidSize / (double)(_vContractQuoteDatas[iCID]->iBidSize + _vContractQuoteDatas[iCID]->iAskSize);
+            }
 
-        _vContractQuoteDatas[iCID]->dWeightedMidInTicks = dWeightedMidInTicks;
-        _vContractQuoteDatas[iCID]->dWeightedMid = dWeightedMidInTicks * _vContractQuoteDatas[iCID]->dTickSize;
-        newPriceUpdate(iCID);
+            _vContractQuoteDatas[iCID]->dWeightedMidInTicks = dWeightedMidInTicks;
+            _vContractQuoteDatas[iCID]->dWeightedMid = dWeightedMidInTicks * _vContractQuoteDatas[iCID]->dTickSize;
+            newPriceUpdate(iCID);
 
-        if(_vContractQuoteDatas[iCID]->iBestAskInTicks - _vContractQuoteDatas[iCID]->iBestBidInTicks > 0)
-        {
-            updateOrderPrice(iCID);
-            updateLiquidationOrderPrice(iCID);
+            if(_vContractQuoteDatas[iCID]->iBestAskInTicks - _vContractQuoteDatas[iCID]->iBestBidInTicks > 0)
+            {
+                updateOrderPrice(iCID);
+                updateLiquidationOrderPrice(iCID);
+            }
         }
     }
 }
@@ -1773,8 +1916,17 @@ void QuickFixScheduler::amendOrderPriceInTicks(KOOrderPtr pOrder, long iPriceInT
         message.setField(11, sNewOrderID);
         message.setField(41, pOrder->_sConfirmedOrderID);
 
+        if(iNewQty > 0)
+        {
+            message.setField(54, "1");
+        }
+        else if(iNewQty < 0)
+        {
+            message.setField(54, "2");
+        }
+
         stringstream cQtyStream;
-        cQtyStream << iNewQty;
+        cQtyStream << abs(iNewQty);
         message.setField(38, cQtyStream.str());
 
         stringstream cPriceStream;
@@ -1789,33 +1941,36 @@ void QuickFixScheduler::amendOrderPriceInTicks(KOOrderPtr pOrder, long iPriceInT
         cStringStream.str("");
         cStringStream.clear();
 
-        if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
+        if(_bIsOrderSessionLoggedOn == true)
         {
-            pOrder->_sPendingOrderID = sNewOrderID;
-            pOrder->_eOrderState = KOOrder::PENDINGCHANGE;
-            pOrder->_cPendingRequestTime = cgetCurrentTime();
-            pOrder->_qOrderMessageHistory.push_back(cgetCurrentTime());
-
-            cStringStream << "Order amendment submitted. \n";
-            ErrorHandler::GetInstance()->newInfoMsg("0", pOrder->_sAccount, pOrder->sgetOrderProductName(), cStringStream.str());
-            cStringStream.str("");
-            cStringStream.clear();
-
-            _iTotalNumMsg = _iTotalNumMsg + 1;
-        }
-        else
-        {
-            cStringStream << "Failed to submit amendment for Order TB ID " << pOrder->_sTBOrderID;
-
-            if(_vLastOrderError[pOrder->_iCID] != cStringStream.str())
+            if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
             {
-                _vLastOrderError[pOrder->_iCID] = cStringStream.str();
-                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-            }
-            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+                pOrder->_sPendingOrderID = sNewOrderID;
+                pOrder->_eOrderState = KOOrder::PENDINGCHANGE;
+                pOrder->_cPendingRequestTime = cgetCurrentTime();
+                pOrder->_qOrderMessageHistory.push_back(cgetCurrentTime());
 
-            cStringStream.str("");
-            cStringStream.clear();
+                cStringStream << "Order amendment submitted. \n";
+                ErrorHandler::GetInstance()->newInfoMsg("0", pOrder->_sAccount, pOrder->sgetOrderProductName(), cStringStream.str());
+                cStringStream.str("");
+                cStringStream.clear();
+
+                _iTotalNumMsg = _iTotalNumMsg + 1;
+            }
+            else
+            {
+                cStringStream << "Failed to submit amendment for Order TB ID " << pOrder->_sTBOrderID;
+
+                if(_vLastOrderError[pOrder->_iCID] != cStringStream.str())
+                {
+                    _vLastOrderError[pOrder->_iCID] = cStringStream.str();
+                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                }
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+
+                cStringStream.str("");
+                cStringStream.clear();
+            }
         }
     }
 }
@@ -1880,26 +2035,6 @@ bool QuickFixScheduler::bcheckRisk(unsigned int iProductIdx, long iNewQty)
     {
         return true;
     }
-}
-
-bool QuickFixScheduler::bgetMarketDataSessionLoggedOn()
-{
-    return _bMarketDataSessionLoggedOn;
-}
-
-bool QuickFixScheduler::bgetMarketDataSubscribed()
-{
-    return _bMarketDataSubscribed;
-}
-
-bool QuickFixScheduler::bgetOrderSessionLoggedOn()
-{
-    return _bOrderSessionLoggedOn;
-}
-
-bool QuickFixScheduler::bgetOrderSubmitted()
-{
-    return _bOrderSubmitted;
 }
 
 }

@@ -118,19 +118,16 @@ bool SchedulerBase::postCommonInit()
 
     loadScheduledManualActionsFile();
     loadScheduledSlotLiquidationFile();
-cerr << "a \n";
+    
     registerTradeEngines();   
 
-cerr << "b \n";
     loadTodaysFigure(_cSchedulerCfg.sDate); 
 
-cerr << "c \n";
     for(vector<TradeEngineBasePtr>::iterator itr = _vTradeEngines.begin(); itr != _vTradeEngines.end(); itr++)
     {
         (*itr)->dayInit();
     }
 
-cerr << "d \n";
     return bResult;
 }
 
@@ -508,7 +505,7 @@ void SchedulerBase::registerTradeEngines()
             {
                 sEngineRunTimePath = sConfigFile.substr(0,iFound+1);
             }
-cerr << "1000 \n";
+
             // Reading in all the standard engine parameters
             string sDelimiter = "";
             isConfig >> sDelimiter;
@@ -519,7 +516,6 @@ cerr << "1000 \n";
             string sTradingEndTime;
             bool bEngineConfigValid = true;
 
-cerr << "1001 \n";
             if(sDelimiter.compare("Engine") == 0)
             {
                 isConfig >> sEngineType;
@@ -544,7 +540,6 @@ cerr << "1001 \n";
                 KOEpochTime cTradingEndTime = SystemClock::GetInstance()->cCreateKOEpochTimeFromCET(_cSchedulerCfg.sDate, sHour.c_str(), sMinute.c_str(), sSecond.c_str());
                 cTradingEndTime = cTradingEndTime;
 
-cerr << "1002 \n";
                 if(sEngineType.compare("SLSL") == 0)
                 {
                     pNewTradeEngine.reset(new SLSL(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType));
@@ -601,10 +596,8 @@ cerr << "1002 \n";
                     }
                 }
 
-cerr << "1003 \n";
                 addNewEngineCall(pNewTradeEngine.get(), EngineEvent::RUN, cTradingStartTime);
                 addNewEngineCall(pNewTradeEngine.get(), EngineEvent::STOP, cTradingEndTime);
-cerr << "1004 \n";
             }
             else
             {
@@ -614,7 +607,6 @@ cerr << "1004 \n";
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
             }
 
-cerr << "1005 \n";
             isConfig >> sDelimiter;
             if(sDelimiter.compare("Products") == 0)
             {
@@ -655,7 +647,6 @@ cerr << "1005 \n";
 
             isConfig >> sDelimiter;
 
-cerr << "1006 \n";
             if(sDelimiter.compare("BaseSignal") == 0)
             {
                 pNewTradeEngine->readFromStream(isConfig);
@@ -668,7 +659,6 @@ cerr << "1006 \n";
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
             }
 
-cerr << "1007 \n";
             if(bEngineConfigValid)
             {
                 _vTradeEngines.push_back(pNewTradeEngine);
@@ -679,7 +669,6 @@ cerr << "1007 \n";
                 cStringStream << "Incorrect format for Config file " << sConfigFile << ". No engine is created";
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
             }
-cerr << "1008 \n";
         }
         else
         {

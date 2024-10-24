@@ -97,6 +97,8 @@ struct QuoteData
 
     bool                            bStalenessErrorTriggered;
     KOEpochTime                     cLastUpdateTime;
+
+    bool                            bDataSubscribed;
 };
 
 }

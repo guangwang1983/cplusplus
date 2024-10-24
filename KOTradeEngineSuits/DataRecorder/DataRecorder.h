@@ -33,6 +33,12 @@ private:
     long _iPrevAccumTradeVolume;
     string _sTodayDate;
     SimpleLogger _cMarketDataLogger;
+    
+    bool _bCheckDataStaled;
+    bool _bDataStaledErrorTriggered;
+    KOEpochTime _cLastDataPointTime;
+
+    long _iNumTimerCallsTriggered;
 };
 
 }

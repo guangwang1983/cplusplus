@@ -66,6 +66,8 @@ int main( int argc, char** argv )
             }
         }
 
+        cQuickFixScheduler.init();
+
         FIX::SocketInitiator cFixSocketInitiator(cQuickFixScheduler, cFixStoreFactory, cFixSettings, cFixLogFactory /*optional*/);
 
         cFixSocketInitiator.start();
@@ -85,15 +87,6 @@ int main( int argc, char** argv )
                 cQuickFixScheduler.onTimer();
             }
 
-            if(cQuickFixScheduler.bgetMarketDataSessionLoggedOn() == true)
-            {
-                if(cQuickFixScheduler.bgetMarketDataSubscribed() == false)
-                {
-                    // need to test reconnect and market data resubscription?
-                    cQuickFixScheduler.init();
-                }
-            }
-        
             if(cQuickFixScheduler.bschedulerFinished())
             {
                 break;

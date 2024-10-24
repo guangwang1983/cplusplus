@@ -2,6 +2,7 @@
 #include "../EngineInfra/SchedulerBase.h"
 #include <boost/math/special_functions/round.hpp>
 #include "../EngineInfra/SystemClock.h"
+#include "../EngineInfra/ErrorHandler.h"
 
 using namespace boost::posix_time;
 using std::cerr;
@@ -18,6 +19,8 @@ DataRecorder::DataRecorder(const string& sEngineRunTimePath,
 :TradeEngineBase(sEngineRunTimePath, "DataRecorder", sEngineSlotName, cTradingStartTime, cTradingEndTime, pScheduler, sTodayDate, sSimType)
 {
     _sTodayDate = sTodayDate;
+    _cLastDataPointTime = cTradingStartTime;
+    _iNumTimerCallsTriggered = 0;
 }
 
 DataRecorder::~DataRecorder()
@@ -56,7 +59,32 @@ void DataRecorder::dayStop()
 
 void DataRecorder::readFromStream(istream& is)
 {
-    (void) is;
+    while(!is.eof())
+    {
+        string sParam;
+        is >> sParam;
+
+        std::istringstream cParamStream (sParam);
+
+        string sParamName;
+
+        std::getline(cParamStream, sParamName, ':');
+
+        if(sParamName == "CheckDataStaled")
+        {
+            string sValue;
+            std::getline(cParamStream, sValue, ':');
+
+            if(sValue == "0")
+            {
+                _bCheckDataStaled = false;
+            }
+            else if(sValue == "1")
+            {
+                _bCheckDataStaled = true;
+            }
+        }
+    }
 }
 
 void DataRecorder::receive(int iCID)
@@ -90,6 +118,9 @@ void DataRecorder::receive(int iCID)
                            << vContractQuoteDatas[0]->iAskSize << ",,,\n";
     }
 
+    _cLastDataPointTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime();
+    _bDataStaledErrorTriggered = false;
+
     (void) iCID;
 }
 
@@ -97,6 +128,23 @@ void DataRecorder::wakeup(KOEpochTime cCallTime)
 {
     (void) cCallTime;
     _cMarketDataLogger.flush();
+
+    if(_iNumTimerCallsTriggered > 300)
+    {
+        if((cCallTime - _cLastDataPointTime).sec() > 300)
+        {
+            if(_bDataStaledErrorTriggered == false)
+            {
+                stringstream cStringStream;
+                cStringStream << "Data recorder for " << vContractQuoteDatas[0]->sRoot << " staled";
+                ErrorHandler::GetInstance()->newErrorMsg("0", _sEngineSlotName, vContractQuoteDatas[0]->sProduct, cStringStream.str());
+
+                _bDataStaledErrorTriggered = true;
+            }
+        }
+    }
+
+    _iNumTimerCallsTriggered = _iNumTimerCallsTriggered + 1;
 }
 
 }
