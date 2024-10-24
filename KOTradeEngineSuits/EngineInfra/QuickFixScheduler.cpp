@@ -37,6 +37,7 @@ QuickFixScheduler::QuickFixScheduler(SchedulerConfig &cfg, bool bIsLiveTrading)
     _iNumTimerCallsReceived = 0;
     _iTotalNumMsg = 0;
 
+    _sOrderSenderCompID = "";
     _bIsOrderSessionLoggedOn= false;
 
     preCommonInit();
@@ -496,8 +497,6 @@ void QuickFixScheduler::submitOrderBestPrice(unsigned int iProductIdx, long iQty
         message.setField(207, "XCME");
     }
 
-    message.setField(377, "N");
-
     if(iQty > 0)
     {
         message.setField(54, "1");
@@ -632,18 +631,23 @@ void QuickFixScheduler::deleteOrder(KOOrderPtr pOrder)
 
 void QuickFixScheduler::amendOrder(KOOrderPtr pOrder, long iQty, long iPriceInTicks)
 {
-    long iqtyDelta = abs(iQty) - pOrder->igetOrderRemainQty();
-    long iqtyRealDelta = iqtyDelta;
-    if(iQty < 0)
-    {
-        iqtyRealDelta = iqtyRealDelta * -1;
-    }
+    long iqtyDelta = iQty - pOrder->igetOrderRemainQty();
 
-    if(bcheckRisk(pOrder->_iCID, iqtyRealDelta) == true || bcheckOrderMsgHistory(pOrder) == true)
+    if(bcheckRisk(pOrder->_iCID, iqtyDelta) == true && bcheckOrderMsgHistory(pOrder) == true)
     {
+        long iNewOrgQty = pOrder->igetOrderOrgQty() + iqtyDelta;
+
+        long iNewQty;
+        if(iNewOrgQty > 0)
+        {
+            iNewQty = iNewOrgQty;
+        }
+        else
+        {
+            iNewQty = iNewOrgQty * -1;
+        }
+
         double dNewPrice = iPriceInTicks * pOrder->_dTickSize;
-        //TODO test amend qty calcualtion
-        long iNewQty = pOrder->igetOrderOrgQty() + iqtyDelta;
 
         FIX::Message message;
         message.getHeader().setField(8, "FIX.4.4");
@@ -655,11 +659,11 @@ void QuickFixScheduler::amendOrder(KOOrderPtr pOrder, long iQty, long iPriceInTi
         message.setField(11, sNewOrderID);
         message.setField(41, pOrder->_sConfirmedOrderID);
     
-        if(iQty > 0)
+        if(iNewOrgQty > 0)
         {
             message.setField(54, "1");
         }
-        else if(iQty < 0)
+        else if(iNewOrgQty < 0)
         {
             message.setField(54, "2");
         }
@@ -675,7 +679,7 @@ void QuickFixScheduler::amendOrder(KOOrderPtr pOrder, long iQty, long iPriceInTi
 
         stringstream cStringStream;
         cStringStream.precision(10);
-        cStringStream << "Amending order confirmed ID" << pOrder->_sConfirmedOrderID << " pending ID " << sNewOrderID << " TB order id " <<  pOrder->_sTBOrderID << ". new qty " << iQty << " new price " << dNewPrice << ".";
+        cStringStream << "Amending order confirmed ID " << pOrder->_sConfirmedOrderID << " pending ID " << sNewOrderID << " TB order id " <<  pOrder->_sTBOrderID << ". new qty " << iQty << " new price " << dNewPrice << ".";
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", pOrder->sgetOrderProductName(), cStringStream.str());
         cStringStream.str("");
         cStringStream.clear(); 
@@ -896,13 +900,34 @@ void QuickFixScheduler::onTimer()
 
     if(_iNumTimerCallsReceived == 2)
     {
-cerr << cNewUpdateTime.igetPrintable() << " check product for price subscription \n";
         checkProductsForPriceSubscription();
     }
     else if((int)(cNewUpdateTime.igetPrintable() / 1000000) % 10 == 0)
     {
-cerr << cNewUpdateTime.igetPrintable()  << " check product for price subscription \n";
         checkProductsForPriceSubscription();
+    }
+
+    if(_iNumTimerCallsReceived == 10)
+    {
+        if(_sOrderSenderCompID != "")
+        {
+            if(_bIsOrderSessionLoggedOn == false)
+            {
+                stringstream cStringStream;
+                cStringStream << "Order session " << _sOrderSenderCompID << " not logged on 10 seconds after engine start";
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+            }
+        }
+
+        for(int i = 0; i < _vMDSessions.size(); i++)
+        {
+            if(_vMDSessions[i].bIsLoggedOn == false)
+            {
+                stringstream cStringStream;
+                cStringStream << "Market data session " << _vMDSessions[i].sSenderCompID << " not logged on 10 seconds after engine start";
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+            }
+        } 
     }
 }
 
@@ -1076,6 +1101,7 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
     unsigned int iProductIdx = 0;
     unsigned int iOrderIdx = 0;
     vector<KOOrderPtr>* pOrderList;
+
     for(; iProductIdx < _vProductOrderList.size(); iProductIdx++)
     {
         pOrderList = &_vProductOrderList[iProductIdx];
@@ -1145,8 +1171,6 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
     if(bOrderFound == true)
     {
         KOOrderPtr pOrderToBeUpdated = (*pOrderList)[iOrderIdx];
-        long iRemainQty = atoi(cExecutionReport.getField(151).c_str());
-        pOrderToBeUpdated->_iOrderRemainQty = iRemainQty;
 
         if(charExecType == 'A')
         {
@@ -1158,9 +1182,18 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
             if(pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGCREATION)
             {
                 pOrderToBeUpdated->_eOrderState = KOOrder::ACTIVE;
+                pOrderToBeUpdated->_sTBOrderID = sTBOrderID;
             }
 
+            long iRemainQty = atoi(cExecutionReport.getField(151).c_str());
             long iSide = atoi(cExecutionReport.getField(54).c_str());
+            if(iSide == 2)
+            {
+                iRemainQty = iRemainQty * -1;
+            }
+
+            pOrderToBeUpdated->_iOrderRemainQty = iRemainQty;
+
             long iFillQty = atoi(cExecutionReport.getField(32).c_str());
             if(iSide == 2)
             {
@@ -1214,16 +1247,14 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
         }
         else if(charExecType == '0' || charExecType == '5') // order accepted
         {
-            long iSide = atoi(cExecutionReport.getField(54).c_str());
             long iOrgQty = atoi(cExecutionReport.getField(38).c_str());
             long iRemainQty = atoi(cExecutionReport.getField(151).c_str());
-
+            long iSide = atoi(cExecutionReport.getField(54).c_str());
             if(iSide == 2)
             {
                 iOrgQty = iOrgQty * -1;
                 iRemainQty = iRemainQty * -1;
             }
-
             double dOrderPrice = atoi(cExecutionReport.getField(44).c_str());
 
             pOrderToBeUpdated->_iOrderOrgQty = iOrgQty;
@@ -1233,6 +1264,11 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
 
             if(pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGCREATION || pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGCHANGE)
             {
+                if(pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGCREATION)
+                {
+                    pOrderToBeUpdated->_sTBOrderID = sTBOrderID;
+                }
+
                 stringstream cStringStream;
                 cStringStream.precision(10);
 
@@ -1348,15 +1384,8 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
     {
         stringstream cStringStream;
         cStringStream << "orderUpdate callback received with unknown order. TB ID " << sTBOrderID << " KO ID " << sClientOrderID << ".";
-
-        if(_vLastOrderError[iProductIdx] != cStringStream.str())
-        {
-            _vLastOrderError[iProductIdx] = cStringStream.str();
-            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-        }
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
-    
 }
 
 void QuickFixScheduler::onMessage(const FIX44::MarketDataSnapshotFullRefresh& cMarketDataSnapshotFullRefresh, const FIX::SessionID& cSessionID)

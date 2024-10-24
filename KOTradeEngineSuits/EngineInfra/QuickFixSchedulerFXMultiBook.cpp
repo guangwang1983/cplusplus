@@ -1150,6 +1150,29 @@ void QuickFixSchedulerFXMultiBook::onTimer()
         checkProductsForPriceSubscription();
     }
 
+    if(_iNumTimerCallsReceived == 10)
+    {
+        if(_sOrderSenderCompID != "")
+        {
+            if(_bIsOrderSessionLoggedOn == false)
+            {
+                stringstream cStringStream;
+                cStringStream << "Order session " << _sOrderSenderCompID << " not logged on 10 seconds after engine start";
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+            }
+        }
+
+        for(int i = 0; i < _vMDSessions.size(); i++)
+        {
+            if(_vMDSessions[i].bIsLoggedOn == false)
+            {
+                stringstream cStringStream;
+                cStringStream << "Market data session " << _vMDSessions[i].sSenderCompID << " not logged on 10 seconds after engine start";
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+            }
+        }
+    }
+
     _cSubBookMarketDataLogger.flush();
 }
 
@@ -1394,8 +1417,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
     if(bOrderFound == true)
     {
         KOOrderPtr pOrderToBeUpdated = (*pOrderList)[iOrderIdx];
-        long iRemainQty = atoi(cExecutionReport.getField(151).c_str());
-        pOrderToBeUpdated->_iOrderRemainQty = iRemainQty;
 
         if(charExecType == 'A')
         {
@@ -1407,9 +1428,18 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
             if(pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGCREATION)
             {
                 pOrderToBeUpdated->_eOrderState = KOOrder::ACTIVE;
+                pOrderToBeUpdated->_sTBOrderID = sTBOrderID;
             }
 
+            long iRemainQty = atoi(cExecutionReport.getField(151).c_str());
             long iSide = atoi(cExecutionReport.getField(54).c_str());
+            if(iSide == 2)
+            {
+                iRemainQty = iRemainQty * -1;
+            }
+
+            pOrderToBeUpdated->_iOrderRemainQty = iRemainQty;
+
             long iFillQty = atoi(cExecutionReport.getField(32).c_str());
             if(iSide == 2)
             {
@@ -1464,16 +1494,14 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
         }
         else if(charExecType == '0' || charExecType == '5') // order accepted
         {
-            long iSide = atoi(cExecutionReport.getField(54).c_str());
             long iOrgQty = atoi(cExecutionReport.getField(38).c_str());
             long iRemainQty = atoi(cExecutionReport.getField(151).c_str());
-
+            long iSide = atoi(cExecutionReport.getField(54).c_str());
             if(iSide == 2)
             {
                 iOrgQty = iOrgQty * -1;
                 iRemainQty = iRemainQty * -1;
             }
-
             double dOrderPrice = atoi(cExecutionReport.getField(44).c_str());
 
             pOrderToBeUpdated->_iOrderOrgQty = iOrgQty;
@@ -1483,6 +1511,11 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
 
             if(pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGCREATION || pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGCHANGE)
             {
+                if(pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGCREATION)
+                {
+                    pOrderToBeUpdated->_sTBOrderID = sTBOrderID;
+                }
+
                 stringstream cStringStream;
                 cStringStream.precision(10);
 
