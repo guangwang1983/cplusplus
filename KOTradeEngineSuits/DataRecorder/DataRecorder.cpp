@@ -84,6 +84,20 @@ void DataRecorder::readFromStream(istream& is)
                 _bCheckDataStaled = true;
             }
         }
+        else if(sParamName == "FlushPosition")
+        {
+            string sValue;
+            std::getline(cParamStream, sValue, ':');
+
+            _iFlushPosition = atoi(sValue.c_str());
+        }
+        else if(sParamName == "FlushBufferSec")
+        {
+            string sValue;
+            std::getline(cParamStream, sValue, ':');
+
+            _iFlushBufferSec = atoi(sValue.c_str());
+        }
     }
 }
 
@@ -127,7 +141,6 @@ void DataRecorder::receive(int iCID)
 void DataRecorder::wakeup(KOEpochTime cCallTime)
 {
     (void) cCallTime;
-    _cMarketDataLogger.flush();
 
     if(_iNumTimerCallsTriggered > 300)
     {
@@ -142,6 +155,12 @@ void DataRecorder::wakeup(KOEpochTime cCallTime)
                 _bDataStaledErrorTriggered = true;
             }
         }
+    }
+
+    if((cCallTime - _cTradingStartTime).sec() % _iFlushBufferSec == _iFlushPosition)
+    {
+cerr << _sEngineSlotName << " flushing \n";
+        _cMarketDataLogger.flush();
     }
 
     _iNumTimerCallsTriggered = _iNumTimerCallsTriggered + 1;

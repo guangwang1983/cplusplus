@@ -38,6 +38,9 @@ private:
     bool _bDataStaledErrorTriggered;
     KOEpochTime _cLastDataPointTime;
 
+    int _iFlushPosition;
+    int _iFlushBufferSec;
+
     long _iNumTimerCallsTriggered;
 };
 
