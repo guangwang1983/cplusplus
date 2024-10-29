@@ -159,7 +159,6 @@ void DataRecorder::wakeup(KOEpochTime cCallTime)
 
     if((cCallTime - _cTradingStartTime).sec() % _iFlushBufferSec == _iFlushPosition)
     {
-cerr << _sEngineSlotName << " flushing \n";
         _cMarketDataLogger.flush();
     }
 

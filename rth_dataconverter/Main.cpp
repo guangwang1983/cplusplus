@@ -272,15 +272,15 @@ int main(int argc, char *argv[])
 	const int constHCAskSizeClmn = 10;
 	const int constHCTradeQualifierClmn = 11;
 
-	const int constRTHDataTimeStampClmn = 3;
-	const int constRTHDataTypeClmn = 5;
-	const int constRTHDataTradePriceClmn = 6;
-	const int constRTHDataTradeVolumeClmn = 7;
-	const int constRTHDataBidClmn = 8;
-	const int constRTHDataBidSizeClmn = 9;
-	const int constRTHDataAskClmn = 10;
-	const int constRTHDataAskSizeClmn = 11;
-	const int constRTHDataTradeQualifierClmn = 12;
+    const int constRTHDataTimeStampClmn = 3;
+    const int constRTHDataTypeClmn = 5;
+    const int constRTHDataTradePriceClmn = 6;
+    const int constRTHDataTradeVolumeClmn = 7;
+    const int constRTHDataBidClmn = 8;
+    const int constRTHDataBidSizeClmn = 9;
+    const int constRTHDataAskClmn = 10;
+    const int constRTHDataAskSizeClmn = 11;
+    const int constRTHDataTradeQualifierClmn = 12;
 
 	const int constTRTHv2TimeStampClmn = 2;
 	const int constTRTHv2TypeClmn = 4;
@@ -380,7 +380,7 @@ int main(int argc, char *argv[])
 					break;
 				}
 			}
-
+ 
 			if(strlen(sNewLine) != 0 && sNewLine[0] != '#')
 			{
 				if(iCurrentLineNumber == 0)
@@ -427,6 +427,7 @@ int main(int argc, char *argv[])
                     istringstream cDataLineStream(sNewLine);
                     string sElement;
                     int iColumnNumber = 0;
+                    int iNumElement = 0;
 		
                     string sTimeStamp = "";	
                     string sLineAction = "";
@@ -442,6 +443,8 @@ int main(int argc, char *argv[])
                     while(!cDataLineStream.eof())
                     {
                         getline(cDataLineStream, sElement, ',');
+
+                        iNumElement = iNumElement + 1;
 
                         if(eFileFormat == TRTHv2)
                         {
@@ -864,7 +867,21 @@ int main(int argc, char *argv[])
                         iColumnNumber = iColumnNumber + 1;
                     }
 
-                    if((sLineAction == "Trade" || sLineAction == "Quote") && sTradeQualifier.find("IND[MKT_ST_IND]") == std::string::npos && sTradeQualifier.find("Exhausted Bid and Ask") == std::string::npos && sTradeQualifier.find("   [MKT_ST_IND]") == std::string::npos)
+                    bool bLineValid = true;
+                    if(eFileFormat == KO_RAW)
+                    {
+                        if(iNumElement > 9)
+                        {
+                            bLineValid = false;
+                        }
+
+                        if(sTimeStamp.size() > 16)
+                        {
+                            bLineValid = false;
+                        }
+                    }
+
+                    if((sLineAction == "Trade" || sLineAction == "Quote") && sTradeQualifier.find("IND[MKT_ST_IND]") == std::string::npos && sTradeQualifier.find("Exhausted Bid and Ask") == std::string::npos && sTradeQualifier.find("   [MKT_ST_IND]") == std::string::npos && bLineValid)
                     {
                         if(sTimeStamp != "")
                         {
