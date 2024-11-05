@@ -987,28 +987,17 @@ void QuickFixScheduler::onLogout(const SessionID&)
 
 void QuickFixScheduler::toAdmin(Message& cMessage, const SessionID& cSessionID)
 {
-    std::cerr << "in toAdmin \n";
-    cerr << cMessage << "\n";
-    std::cerr << "cracking toAdmin message \n";
     crack(cMessage, cSessionID);
-    std::cerr << "message cracked \n";
 }
 
 void QuickFixScheduler::toApp(Message& cMessage, const SessionID& cSessionID) throw(DoNotSend)
 {
-    std::cerr << "in toApp \n";
-    std::cerr << "cracking toApp message \n";
     crack(cMessage, cSessionID);
-    cerr << cMessage;
-    std::cerr << "message cracked \n";
 }
 
 void QuickFixScheduler::fromAdmin(const Message& cMessage, const SessionID& cSessionID) throw(FieldNotFound, IncorrectDataFormat, IncorrectTagValue, RejectLogon)
 {
-    std::cerr << "in fromAdmin \n";
-    cerr << "cracking from Admin message \n";
     crack(cMessage, cSessionID);
-    cerr << "message cracked \n";
 }
 
 void QuickFixScheduler::fromApp(const Message& cMessage, const SessionID& cSessionID) throw(FieldNotFound, IncorrectDataFormat, IncorrectTagValue, UnsupportedMessageType)
@@ -1071,15 +1060,16 @@ void QuickFixScheduler::onMessage(const FIX44::MarketDataRequestReject& cReject,
     FIX::Text cText;
     cReject.get(cText);
 
+    int iCID;
+    iCID = atoi(cReject.getField(262).c_str());
+
     stringstream cStringStream;
-    cStringStream << "Market Data request rejected. Reason: " << cText;
+    cStringStream << "Market Data request " << _vContractQuoteDatas[iCID]->sProduct << " rejected. Reason: " << cText;
     ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
 }
 
 void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport, const FIX::SessionID& cSessionID)
 {
-    std::cerr << "received execution report \n";
-
     FIX::OrderID cTBOrderID;
     cExecutionReport.get(cTBOrderID);
     string sTBOrderID = cTBOrderID;
@@ -1500,8 +1490,6 @@ void QuickFixScheduler::onMessage(FIX44::BusinessMessageReject& cBusinessMessage
 
 void QuickFixScheduler::onMessage(const FIX44::BusinessMessageReject& cBusinessMessageReject, const FIX::SessionID& cSessionID)
 {
-    std::cerr <<"received business messag reject \n";
-
     FIX::Text cText;
     cBusinessMessageReject.get(cText);
     string sText = cText;
@@ -1512,7 +1500,7 @@ void QuickFixScheduler::onMessage(const FIX44::BusinessMessageReject& cBusinessM
     if(cRefMsgType ==  "V")
     {
         stringstream cStringStream;
-        cStringStream << "Unable to register market data. Reason: " << cText;
+        cStringStream << "Unable to register market data for session " << cSessionID.getSenderCompID() << ". Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
     else if(cRefMsgType == "D")
@@ -1765,13 +1753,7 @@ void QuickFixScheduler::onMessage(const FIX44::OrderCancelReject& cOrderCancelRe
         {
             stringstream cStringStream;
             cStringStream << "Order cancel reject received with unknown TB ID " << sTBOrderID << ".";
-
-            if(_vLastOrderError[iProductIdx] != cStringStream.str())
-            {
-                _vLastOrderError[iProductIdx] = cStringStream.str();
-                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-            }
-            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
         }
     }
 }
@@ -1786,6 +1768,7 @@ void QuickFixScheduler::updateOrderPrice(unsigned int iProductIdx)
         bAllOrderConfirmed = bAllOrderConfirmed && (*pOrderList)[i]->borderCanBeChanged();
         iOpenOrderQty = iOpenOrderQty + (*pOrderList)[i]->igetOrderRemainQty();
     }
+
 
     if(bAllOrderConfirmed && iOpenOrderQty != 0)
     {

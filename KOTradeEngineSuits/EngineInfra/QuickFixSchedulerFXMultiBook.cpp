@@ -1234,28 +1234,17 @@ void QuickFixSchedulerFXMultiBook::onLogout(const SessionID&)
 
 void QuickFixSchedulerFXMultiBook::toAdmin(Message& cMessage, const SessionID& cSessionID)
 {
-    std::cerr << "in toAdmin \n";
-    cerr << cMessage << "\n";
-    std::cerr << "cracking toAdmin message \n";
     crack(cMessage, cSessionID);
-    std::cerr << "message cracked \n";
 }
 
 void QuickFixSchedulerFXMultiBook::toApp(Message& cMessage, const SessionID& cSessionID) throw(DoNotSend)
 {
-    std::cerr << "in toApp \n";
-    std::cerr << "cracking toApp message \n";
     crack(cMessage, cSessionID);
-    cerr << cMessage;
-    std::cerr << "message cracked \n";
 }
 
 void QuickFixSchedulerFXMultiBook::fromAdmin(const Message& cMessage, const SessionID& cSessionID) throw(FieldNotFound, IncorrectDataFormat, IncorrectTagValue, RejectLogon)
 {
-    std::cerr << "in fromAdmin \n";
-    cerr << "cracking from Admin message \n";
     crack(cMessage, cSessionID);
-    cerr << "message cracked \n";
 }
 
 void QuickFixSchedulerFXMultiBook::fromApp(const Message& cMessage, const SessionID& cSessionID) throw(FieldNotFound, IncorrectDataFormat, IncorrectTagValue, UnsupportedMessageType)
@@ -1318,15 +1307,48 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataRequestRejec
     FIX::Text cText;
     cReject.get(cText);
 
-    stringstream cStringStream;
-    cStringStream << "Market Data request rejected. Reason: " << cText;
-    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    string sClientRef = cReject.getField(262).c_str();
+
+    if(sClientRef.c_str()[0] == '_')
+    {
+        std::istringstream cIDStream (sClientRef);
+
+        string sParentCID;
+        std::getline(cIDStream, sParentCID, '_');
+        std::getline(cIDStream, sParentCID, '_');
+        int iCID = atoi(sParentCID.c_str());
+
+        string sSubCID;
+        std::getline(cIDStream, sSubCID, '_');
+        int iSubCID = atoi(sSubCID.c_str());
+
+        for(map<unsigned int, vector<QuoteData>>::iterator itr = _vProductMultiBooks.begin(); itr != _vProductMultiBooks.end(); itr++)
+        {
+            if(itr->first == iCID)
+            {
+                for(vector<QuoteData>::iterator subQuoteItr = itr->second.begin(); subQuoteItr != itr->second.end(); subQuoteItr++)
+                {
+                    if(iSubCID == subQuoteItr->iCID)
+                    {
+                        stringstream cStringStream;
+                        cStringStream << "Market Data request " << subQuoteItr->sProduct << " rejected. Reason: " << cText;
+                        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        int iCID = atoi(sClientRef.c_str());
+        stringstream cStringStream;
+        cStringStream << "Market Data request " << _vContractQuoteDatas[iCID]->sProduct << " rejected. Reason: " << cText;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    }
 }
 
 void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExecutionReport, const FIX::SessionID& cSessionID)
 {
-    std::cerr << "received execution report \n";
-
     FIX::OrderID cTBOrderID;
     cExecutionReport.get(cTBOrderID);
     string sTBOrderID = cTBOrderID;
@@ -1882,7 +1904,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
     if(cRefMsgType ==  "V")
     {
         stringstream cStringStream;
-        cStringStream << "Unable to register market data. Reason: " << cText;
+        cStringStream << "Unable to register market data for session " << cSessionID.getSenderCompID() << ". Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
     else if(cRefMsgType == "D")
@@ -2135,12 +2157,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::OrderCancelReject& cOr
         {
             stringstream cStringStream;
             cStringStream << "Order cancel reject received with unknown TB ID " << sTBOrderID << ".";
-
-            if(_vLastOrderError[iProductIdx] != cStringStream.str())
-            {
-                _vLastOrderError[iProductIdx] = cStringStream.str();
-                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-            }
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
         }
     }
