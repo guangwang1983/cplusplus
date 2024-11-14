@@ -142,9 +142,9 @@ void DataRecorder::wakeup(KOEpochTime cCallTime)
 {
     (void) cCallTime;
 
-    if(_iNumTimerCallsTriggered > 300)
+    if(_iNumTimerCallsTriggered > 1800)
     {
-        if((cCallTime - _cLastDataPointTime).sec() > 300)
+        if((cCallTime - _cLastDataPointTime).sec() > 1800)
         {
             if(_bDataStaledErrorTriggered == false)
             {

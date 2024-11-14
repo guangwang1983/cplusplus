@@ -129,13 +129,13 @@ void loadOvernightStats(string sStatFileName, map<boost::gregorian::date, DailyL
                     bStatValid = bStatValid && std::getline(cDailyStatStream, sStdevAdjustment, ',');
                     bStatValid = bStatValid && std::getline(cDailyStatStream, sLastMid, ',');
 
-                    cLegStat.dEXMA = stod(sEXMA);
+                    cLegStat.dEXMA = atof(sEXMA.c_str());
                     cLegStat.iEXMANumDataPoints = atoi(sEXMANumDataPoints.c_str());
-                    cLegStat.dStdevEXMA = stod(sStdevEXMA);
-                    cLegStat.dStdevSqrdEXMA = stod(sStdevSqrdEXMA);
+                    cLegStat.dStdevEXMA = atof(sStdevEXMA.c_str());
+                    cLegStat.dStdevSqrdEXMA = atof(sStdevSqrdEXMA.c_str());
                     cLegStat.iStdevNumDataPoints = atoi(sStdevNumDataPoints.c_str());
-                    cLegStat.dStdevAdjustment = stod(sStdevAdjustment);
-                    cLegStat.dLastMid = stod(sLastMid);
+                    cLegStat.dStdevAdjustment = atof(sStdevAdjustment.c_str());
+                    cLegStat.dLastMid = atof(sLastMid.c_str());
 
                     if(bStatValid == true)
                     {
@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
         string sRollDelta = sNewLine;
         sRollDelta.erase(remove(sRollDelta.begin(), sRollDelta.end(), '\n'), sRollDelta.end());
         
-        dRollDelta = stod(sRollDelta);
+        dRollDelta = atof(sRollDelta.c_str());
     }
     else
     {

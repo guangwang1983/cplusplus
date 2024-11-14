@@ -1524,7 +1524,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
                 iOrgQty = iOrgQty * -1;
                 iRemainQty = iRemainQty * -1;
             }
-            double dOrderPrice = atoi(cExecutionReport.getField(44).c_str());
+            double dOrderPrice = atof(cExecutionReport.getField(44).c_str());
 
             pOrderToBeUpdated->_iOrderOrgQty = iOrgQty;
             pOrderToBeUpdated->_iOrderRemainQty = iRemainQty;

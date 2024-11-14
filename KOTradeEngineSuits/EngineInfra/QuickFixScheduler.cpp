@@ -492,7 +492,7 @@ void QuickFixScheduler::submitOrderBestPrice(unsigned int iProductIdx, long iQty
     {
         message.setField(207, "IFLL");
     }
-    else if(_vContractQuoteDatas[iProductIdx]->sExchange == "XEUR")
+    else if(_vContractQuoteDatas[iProductIdx]->sExchange == "XCME")
     {
         message.setField(207, "XCME");
     }
@@ -505,6 +505,14 @@ void QuickFixScheduler::submitOrderBestPrice(unsigned int iProductIdx, long iQty
     {
         message.setField(54, "2");
     }
+
+    message.setField(9000, "N");
+    message.setField(20014, "3");
+    message.setField(20015, "3");
+    message.setField(20011, "3000058");
+    message.setField(20012, "3000058");
+    message.setField(2362, "Y");
+    message.setField(9001, "Trondheim");
 
     stringstream cQtyStream;
     cQtyStream << abs(iQty);
@@ -1245,7 +1253,7 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
                 iOrgQty = iOrgQty * -1;
                 iRemainQty = iRemainQty * -1;
             }
-            double dOrderPrice = atoi(cExecutionReport.getField(44).c_str());
+            double dOrderPrice = atof(cExecutionReport.getField(44).c_str());
 
             pOrderToBeUpdated->_iOrderOrgQty = iOrgQty;
             pOrderToBeUpdated->_iOrderRemainQty = iRemainQty;
