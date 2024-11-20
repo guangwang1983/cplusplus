@@ -160,6 +160,9 @@ protected:
 
     void updateProductPnL(int iProductIndex);
 
+    void checkProductPriceStatus(KOEpochTime cCallTime);
+    std::map<string, bool> _mExchangeStalenessTriggered;   
+ 
     string _sSimType;
 
     boost::shared_ptr<StaticDataHandler> _pStaticDataHandler;

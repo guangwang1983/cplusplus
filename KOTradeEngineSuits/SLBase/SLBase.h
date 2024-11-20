@@ -150,6 +150,7 @@ protected:
     bool _bIsFastLiqTimeReached;
     long _iPatLiqOffSet;
 
+    long _iNumWakeupSeen;
     bool _bValidStatsSeen;
     bool _bInvalidStatTriggered;
 

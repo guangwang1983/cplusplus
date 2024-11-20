@@ -231,6 +231,135 @@ void SchedulerBase::newPriceUpdate(long iProductIndex)
     }
 }
 
+void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
+{
+    std::map<string, long> mLastExchangeUpdateTimes;
+    std::map<string, bool> mExchangeOpen;
+
+    for(unsigned int i = 0; i < _vContractQuoteDatas.size(); ++i)
+    {
+        std::map<string, bool>::iterator itrExchangeOpen;
+        itrExchangeOpen = mExchangeOpen.find(_vContractQuoteDatas[i]->sExchange);
+        if(itrExchangeOpen == mExchangeOpen.end())
+        {
+            mExchangeOpen[_vContractQuoteDatas[i]->sExchange] = false;
+        }
+
+        if(cCallTime > _vContractQuoteDatas[i]->cMarketOpenTime &&
+           cCallTime < _vContractQuoteDatas[i]->cMarketCloseTime)
+        {
+            mExchangeOpen[_vContractQuoteDatas[i]->sExchange] = mExchangeOpen[_vContractQuoteDatas[i]->sExchange] || true;
+        }
+        else
+        {
+            mExchangeOpen[_vContractQuoteDatas[i]->sExchange] = mExchangeOpen[_vContractQuoteDatas[i]->sExchange] || false;
+        }
+
+        if(cCallTime > _cActualStartedTime + KOEpochTime(90,0) &&
+           cCallTime > _vContractQuoteDatas[i]->cMarketOpenTime + KOEpochTime(90,0) &&
+           cCallTime < _vContractQuoteDatas[i]->cMarketCloseTime)
+        {
+            std::map<string,long>::iterator itr;
+            itr = mLastExchangeUpdateTimes.find(_vContractQuoteDatas[i]->sExchange);
+            if(itr != mLastExchangeUpdateTimes.end())
+            {
+                if(mLastExchangeUpdateTimes[_vContractQuoteDatas[i]->sExchange] < _vContractQuoteDatas[i]->cLastUpdateTime.sec())
+                {
+                    mLastExchangeUpdateTimes[_vContractQuoteDatas[i]->sExchange] = _vContractQuoteDatas[i]->cLastUpdateTime.sec();
+                }
+            }
+            else
+            {
+                mLastExchangeUpdateTimes[_vContractQuoteDatas[i]->sExchange] = _vContractQuoteDatas[i]->cLastUpdateTime.sec();
+            }
+
+            if(_vContractQuoteDatas[i]->bStalenessErrorTriggered == false)
+            {
+                if(_vContractQuoteDatas[i]->cLastUpdateTime.igetPrintable() != 0)
+                {
+                    if((SystemClock::GetInstance()->cgetCurrentKOEpochTime() - _vContractQuoteDatas[i]->cLastUpdateTime).sec() > 3600)
+                    {
+                        _vContractQuoteDatas[i]->bStalenessErrorTriggered = true;
+                        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, "Price staled for more than 1 hour");
+                    }
+                }
+            }
+
+            if(_vContractQuoteDatas[i]->iBidSize == 0 ||
+               _vContractQuoteDatas[i]->iAskSize == 0 ||
+               _vContractQuoteDatas[i]->dBestAsk - _vContractQuoteDatas[i]->dBestBid < 0.00000001)
+            {
+                if(_vContractQuoteDatas[i]->bPriceValid == true)
+                {
+                    _vContractQuoteDatas[i]->bPriceValid = false;
+                    _vContractQuoteDatas[i]->cPriceInvalidTime = cCallTime;
+                }
+                else
+                {
+                    if((cCallTime - _vContractQuoteDatas[i]->cPriceInvalidTime).sec() > 100)
+                    {
+                        if(_vContractQuoteDatas[i]->bPriceInvalidTriggered == false)
+                        {
+                            _vContractQuoteDatas[i]->bPriceInvalidTriggered = true;
+
+                            stringstream cStringStream;
+                            cStringStream << "Invalid price for more than 100 seconds " << _vContractQuoteDatas[i]->iBidSize << "|" << _vContractQuoteDatas[i]->dBestBid << "|" << _vContractQuoteDatas[i]->iBestBidInTicks << "|" << _vContractQuoteDatas[i]->iBestAskInTicks << "|" << _vContractQuoteDatas[i]->dBestAsk << "|" << _vContractQuoteDatas[i]->iAskSize;
+                            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cStringStream.str());
+                        }
+                    }
+                }
+            }
+            else
+            {
+                if(_vContractQuoteDatas[i]->bPriceValid == false)
+                {
+                    _vContractQuoteDatas[i]->bPriceValid = true;
+                    _vContractQuoteDatas[i]->bPriceInvalidTriggered = false;
+                    _vContractQuoteDatas[i]->cPriceInvalidTime = KOEpochTime();
+
+                    stringstream cStringStream;
+                    cStringStream << "Price recovered from invalid state";
+                    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cStringStream.str());
+                }
+            }
+        }
+    }
+
+    for(std::map<string, long>::iterator itr = mLastExchangeUpdateTimes.begin(); itr != mLastExchangeUpdateTimes.end(); ++itr)
+    {
+        if(mExchangeOpen[itr->first] == true)
+        {
+            if(cCallTime.sec() - itr->second > 300)
+            {
+                std::map<string, bool>::iterator triggeredItr;
+                triggeredItr = _mExchangeStalenessTriggered.find(itr->first);
+
+                bool bTriggered;    
+                if(triggeredItr == _mExchangeStalenessTriggered.end())
+                {
+                    bTriggered = false;
+                }
+                else
+                {
+                    bTriggered = _mExchangeStalenessTriggered[itr->first];
+                }
+
+                if(bTriggered == false)
+                {
+                    stringstream cStringStream;
+                    cStringStream << "Prices on " << itr->first << " staled for more than 5 mins";
+                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                    _mExchangeStalenessTriggered[itr->first] = true;
+                }
+            }
+            else
+            {
+                _mExchangeStalenessTriggered[itr->first] = false;
+            }
+        }
+    }
+}
+
 void SchedulerBase::wakeup(KOEpochTime cCallTime)
 {
     if(_cActualStartedTime == KOEpochTime(0,0))
@@ -268,63 +397,7 @@ void SchedulerBase::wakeup(KOEpochTime cCallTime)
             _pTradeSignalMerger->takePosSnapShot();
         }
 
-        for(unsigned int i = 0; i < _vContractQuoteDatas.size(); ++i)
-        {
-            if(cCallTime > _cActualStartedTime + KOEpochTime(90,0) &&
-               cCallTime > _vContractQuoteDatas[i]->cMarketOpenTime + KOEpochTime(90,0) &&
-               cCallTime < _vContractQuoteDatas[i]->cMarketCloseTime)
-            {
-                if(_vContractQuoteDatas[i]->bStalenessErrorTriggered == false)
-                {
-                    if(_vContractQuoteDatas[i]->cLastUpdateTime.igetPrintable() != 0)
-                    {
-                        if((SystemClock::GetInstance()->cgetCurrentKOEpochTime() - _vContractQuoteDatas[i]->cLastUpdateTime).sec() > 3600)
-                        {
-                            _vContractQuoteDatas[i]->bStalenessErrorTriggered = true;
-                            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, "Price staled for more than 1 hour");
-                        }
-                    }
-                }
-
-                if(_vContractQuoteDatas[i]->iBidSize == 0 ||
-                   _vContractQuoteDatas[i]->iAskSize == 0 ||
-                   _vContractQuoteDatas[i]->dBestAsk - _vContractQuoteDatas[i]->dBestBid < 0.00000001)
-                {
-                    if(_vContractQuoteDatas[i]->bPriceValid == true)
-                    {
-                        _vContractQuoteDatas[i]->bPriceValid = false;
-                        _vContractQuoteDatas[i]->cPriceInvalidTime = cCallTime;
-                    }
-                    else
-                    {
-                        if((cCallTime - _vContractQuoteDatas[i]->cPriceInvalidTime).sec() > 100)
-                        {
-                            if(_vContractQuoteDatas[i]->bPriceInvalidTriggered == false)
-                            {
-                                _vContractQuoteDatas[i]->bPriceInvalidTriggered = true;
-
-                                stringstream cStringStream;
-                                cStringStream << "Invalid price for more than 100 seconds " << _vContractQuoteDatas[i]->iBidSize << "|" << _vContractQuoteDatas[i]->dBestBid << "|" << _vContractQuoteDatas[i]->iBestBidInTicks << "|" << _vContractQuoteDatas[i]->iBestAskInTicks << "|" << _vContractQuoteDatas[i]->dBestAsk << "|" << _vContractQuoteDatas[i]->iAskSize;
-                                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cStringStream.str());
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    if(_vContractQuoteDatas[i]->bPriceValid == false)
-                    {
-                        _vContractQuoteDatas[i]->bPriceValid = true;
-                        _vContractQuoteDatas[i]->bPriceInvalidTriggered = false;
-                        _vContractQuoteDatas[i]->cPriceInvalidTime = KOEpochTime();
-
-                        stringstream cStringStream;
-                        cStringStream << "Price recovered from invalid state";
-                        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cStringStream.str());
-                    }
-                }
-            }
-        }
+        checkProductPriceStatus(cCallTime);
 
         for(vector<TradeEngineBasePtr>::iterator itr = _vTradeEngines.begin(); itr != _vTradeEngines.end(); ++itr)
         {

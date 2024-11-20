@@ -74,6 +74,8 @@ SLBase::SLBase(const string& sEngineRunTimePath,
 
     _bIsBullishMom = false;
     _bIsBearishMom = false;
+
+    _iNumWakeupSeen = 0;
 }
 
 SLBase::~SLBase()
@@ -514,9 +516,11 @@ void SLBase::printSignal()
 
 void SLBase::wakeup(KOEpochTime cCallTime)
 {
+    _iNumWakeupSeen = _iNumWakeupSeen + 1;
+
     if(_bValidStatsSeen == false)
     {
-        if(cCallTime > _cTradingStartTime + KOEpochTime(300,0))
+        if(_iNumWakeupSeen > 300)
         {
             if(_bInvalidStatTriggered == false)
             {
