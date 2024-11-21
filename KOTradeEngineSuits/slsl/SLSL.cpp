@@ -738,202 +738,202 @@ void SLSL::loadOvernightStats()
                     bool bStatValid = true;
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dQuoteInstrumentEXMA = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dQuoteInstrumentEXMA = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->iQuoteInstrumentEXMANumDataPoints = stol(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->iQuoteInstrumentEXMANumDataPoints = atoi(sElement.c_str());
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dQuoteInstrumentWeightedStdevEXMA = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dQuoteInstrumentWeightedStdevEXMA = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dQuoteInstrumentWeightedStdevSqrdEXMA = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dQuoteInstrumentWeightedStdevSqrdEXMA = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->iQuoteInstrumentWeightedStdevNumDataPoints = stol(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->iQuoteInstrumentWeightedStdevNumDataPoints = atoi(sElement.c_str());
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dQuoteInstrumentWeightedStdevAdjustment = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dQuoteInstrumentWeightedStdevAdjustment = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dSignalInstrumentEXMA = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dSignalInstrumentEXMA = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->iSignalInstrumentEXMANumDataPoints = stol(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->iSignalInstrumentEXMANumDataPoints = atoi(sElement.c_str());
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dSignalInstrumentWeightedStdevEXMA = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dSignalInstrumentWeightedStdevEXMA = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dSignalInstrumentWeightedStdevSqrdEXMA = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dSignalInstrumentWeightedStdevSqrdEXMA = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->iSignalInstrumentWeightedStdevNumDataPoints = stol(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->iSignalInstrumentWeightedStdevNumDataPoints = atoi(sElement.c_str());
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dSignalInstrumentWeightedStdevAdjustment = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dSignalInstrumentWeightedStdevAdjustment = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dProductWeightedStdevEXMA = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dProductWeightedStdevEXMA = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dProductWeightedStdevSqrdEXMA = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dProductWeightedStdevSqrdEXMA = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->iProductWeightedStdevNumDataPoints = stol(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->iProductWeightedStdevNumDataPoints = atoi(sElement.c_str());
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dProductWeightedStdevAdjustment = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dProductWeightedStdevAdjustment = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dLastQuoteMid = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dLastQuoteMid = stod(sElement);
 
                     std::getline(cDailyStatStream, sElement, ',');
-                    if(sElement.compare("") == 0)
+                    try
+                    {
+                        pDailyStat->dLastSignalMid = stod(sElement);
+                        bStatValid = bStatValid && true;
+                    }
+                    catch(exception e)
                     {
                         bStatValid = bStatValid && false;
                     }
-                    else
-                    {
-                        bStatValid = bStatValid && true;
-                    }
-                    pDailyStat->dLastSignalMid = stod(sElement);
 
                     if(bStatValid)
                     {

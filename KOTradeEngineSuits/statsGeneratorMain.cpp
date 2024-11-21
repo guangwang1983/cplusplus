@@ -129,13 +129,21 @@ void loadOvernightStats(string sStatFileName, map<boost::gregorian::date, DailyL
                     bStatValid = bStatValid && std::getline(cDailyStatStream, sStdevAdjustment, ',');
                     bStatValid = bStatValid && std::getline(cDailyStatStream, sLastMid, ',');
 
-                    cLegStat.dEXMA = atof(sEXMA.c_str());
-                    cLegStat.iEXMANumDataPoints = atoi(sEXMANumDataPoints.c_str());
-                    cLegStat.dStdevEXMA = atof(sStdevEXMA.c_str());
-                    cLegStat.dStdevSqrdEXMA = atof(sStdevSqrdEXMA.c_str());
-                    cLegStat.iStdevNumDataPoints = atoi(sStdevNumDataPoints.c_str());
-                    cLegStat.dStdevAdjustment = atof(sStdevAdjustment.c_str());
-                    cLegStat.dLastMid = atof(sLastMid.c_str());
+                    try
+                    {
+                        cLegStat.dEXMA = stod(sEXMA);
+                        cLegStat.iEXMANumDataPoints = stol(sEXMANumDataPoints);
+                        cLegStat.dStdevEXMA = stod(sStdevEXMA);
+                        cLegStat.dStdevSqrdEXMA = stod(sStdevSqrdEXMA);
+                        cLegStat.iStdevNumDataPoints = stol(sStdevNumDataPoints);
+                        cLegStat.dStdevAdjustment = stod(sStdevAdjustment);
+                        cLegStat.dLastMid = stod(sLastMid);
+                        bStatValid = true;
+                    }
+                    catch(exception e)
+                    {
+                        bStatValid = false;
+                    }
 
                     if(bStatValid == true)
                     {
