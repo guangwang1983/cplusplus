@@ -34,7 +34,8 @@ struct LP
     int iLPIdx;
     int iPriceInTicks;
     long iSize;
-    string sECN;
+    string sLPProductCode;
+    string sExchange;
 };
 
 bool compareLPsAsk(LP LP1, LP LP2)
@@ -77,16 +78,14 @@ void QuickFixSchedulerFXMultiBook::init()
 
         QuoteData* pNewQuoteDataPtr;
 
-//        if(_cSchedulerCfg.vProducts[i].find("CFX") == 0) to be reverted
-        if(_cSchedulerCfg.vProducts[i].find("XEUR") == 0)
+        if(_cSchedulerCfg.vProducts[i].find("CFX") == 0)
         {
             cStringStream.str("");
             cStringStream.clear();
             cStringStream << "Creating multi book product " << _cSchedulerCfg.vProducts[i];
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
 
-//            pNewQuoteDataPtr = pregisterProduct(_cSchedulerCfg.vProducts[i], KO_FX);
-            pNewQuoteDataPtr = pregisterProduct(_cSchedulerCfg.vProducts[i], KO_FUTURE);
+            pNewQuoteDataPtr = pregisterProduct(_cSchedulerCfg.vProducts[i], KO_FX);
             _vProductMultiBooks.insert(std::pair<unsigned int, vector<QuoteData>>(i, vector<QuoteData>()));
         }
         else
@@ -136,8 +135,8 @@ void QuickFixSchedulerFXMultiBook::init()
         cStringStream << "Creating sub product " << _cSchedulerCfg.vFXSubProducts[i];
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
 
-        string sExchange = _cSchedulerCfg.vFXSubProducts[i].substr(0, _cSchedulerCfg.vFXSubProducts[i].rfind("."));
-        string root = _cSchedulerCfg.vFXSubProducts[i].substr(_cSchedulerCfg.vFXSubProducts[i].rfind(".")+1);
+        string root = _cSchedulerCfg.vFXSubProducts[i].substr(0, _cSchedulerCfg.vFXSubProducts[i].rfind("."));
+        string sExchange = _cSchedulerCfg.vFXSubProducts[i].substr(_cSchedulerCfg.vFXSubProducts[i].rfind(".")+1);
         int iSubCID = -1;
         int iParentCID = -1;
 
@@ -190,8 +189,7 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
 {
     for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
     {
-//        if(_cSchedulerCfg.vProducts[i].find("CFX") == std::string::npos) to be reverted
-        if(_cSchedulerCfg.vProducts[i].find("XEUR") == std::string::npos)
+        if(_cSchedulerCfg.vProducts[i].find("CFX") == std::string::npos)
         {
             if(_vContractQuoteDatas[i]->bDataSubscribed == false)
             {
@@ -290,16 +288,20 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
         {
             if(pSubProduct->bDataSubscribed == false)
             {
-                string sTBExchange = pSubProduct->sExchange;
-                    
+                string sTBExchange = "";
+                if(pSubProduct->sExchange.find("FXSS") != std::string::npos)
+                {
+                    sTBExchange = "FXSS";
+                }
+        
                 int iMDSessionsIdx = 0;
                 const FIX::SessionID* pMarketDataSessionID = NULL;
                 string sSenderCompID = "";
                 bool bIsLoggedOn = false;
                 for(;iMDSessionsIdx < _vMDSessions.size();iMDSessionsIdx++)
                 {
-//                    if(_vMDSessions[iMDSessionsIdx].sSenderCompID.find(sTBExchange) != std::string::npos) to be reverted
-                    if(_vMDSessions[iMDSessionsIdx].sSenderCompID.find("EUREX") != std::string::npos)
+                    // TODO find the correct exchange for FX instrument
+                    if(_vMDSessions[iMDSessionsIdx].sSenderCompID.find(sTBExchange) != std::string::npos)
                     {
                         pMarketDataSessionID = _vMDSessions[iMDSessionsIdx].pFixSessionID;
                         sSenderCompID = _vMDSessions[iMDSessionsIdx].sSenderCompID;
@@ -324,9 +326,7 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
 
                     message.setField(22, "9");
                
-                     //message.setField(48, _cSchedulerCfg.vFXSubProducts[i]); to be reverted
-                    string root = pSubProduct->sTBProduct.substr(pSubProduct->sTBProduct.rfind(".")+1);
-                    message.setField(48, root);
+                    message.setField(48, _cSchedulerCfg.vFXSubProducts[iSubCID]);
                     message.setField(15, _vContractQuoteDatas[iParentCID]->sCurrency);
 
                     stringstream cStringStream;
@@ -407,11 +407,6 @@ bool QuickFixSchedulerFXMultiBook::sendToExecutor(const string& sProduct, long i
         {
             _vFirstOrderTime[iProductIdx] = cgetCurrentTime();
         }
-
-        //if((cgetCurrentTime() - _vFirstOrderTime[iProductIdx]).igetPrintable() < 300000000 || _vProductLiquidating[iProductIdx] == true)
-        //{
-        //    iProductExpoLimit = iProductExpoLimit / 5;
-        //}
 
         long iAdjustedDesiredPos = iDesiredPos;
 
@@ -646,7 +641,8 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                         vLPs.back().iLPIdx = index;
                         vLPs.back().iPriceInTicks = (*subQuoteItr).iBestAskInTicks;
                         vLPs.back().iSize = (*subQuoteItr).iAskSize;
-                        vLPs.back().sECN = sECN;
+                        vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
+                        vLPs.back().sExchange = sECN;
                     }
 
                     index = index + 1;
@@ -657,8 +653,8 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                 {
                     long iOrderSize;
                     int iActualOrderPrice;
-                    int iLPIndex = LPItr->iLPIdx;
-                    string sECN = LPItr->sECN;
+                    string sLPProductCode = LPItr->sLPProductCode;
+                    string sExchange = LPItr->sExchange;
 
                     if(iOrderPriceInTicks + 1 >= LPItr->iPriceInTicks)
                     {
@@ -692,7 +688,7 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
 
                             // set instrument
                             message.setField(55, _vContractQuoteDatas[iProductIdx]->sProduct);
-                            message.setField(48, _vContractQuoteDatas[iProductIdx]->sTBProduct);
+                            message.setField(48, sLPProductCode);
                             message.setField(22, "9");
 
                             if(iOrderSize > 0)
@@ -729,11 +725,11 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                             cStringStream.precision(10);
                             if(bIsLiquidation == false)
                             {
-                                cStringStream << "Submitting new order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << ".";
+                                cStringStream << "Submitting new order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << " to " << sExchange << ".";
                             }
                             else
                             {
-                                cStringStream << "Submitting new liquidation order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << ".";
+                                cStringStream << "Submitting new liquidation order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << " to " << sExchange << ".";
                             }
                             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
                             cStringStream.str("");
@@ -816,6 +812,8 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                         vLPs.back().iLPIdx = index;
                         vLPs.back().iPriceInTicks = subQuoteItr->iBestBidInTicks;
                         vLPs.back().iSize = subQuoteItr->iBidSize;
+                        vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
+                        vLPs.back().sExchange = sECN;
                     }
 
                     index = index + 1;
@@ -826,8 +824,8 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                 {
                     long iOrderSize;
                     int iActualOrderPrice;
-                    int iLPIndex = LPItr->iLPIdx;
-                    string sECN = LPItr->sECN;
+                    string sLPProductCode = LPItr->sLPProductCode;
+                    string sExchange = LPItr->sExchange;
 
                     if(iOrderPriceInTicks - 1 <= LPItr->iPriceInTicks)
                     {
@@ -861,7 +859,7 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
 
                             // set instrument
                             message.setField(55, _vContractQuoteDatas[iProductIdx]->sProduct);
-                            message.setField(48, _vContractQuoteDatas[iProductIdx]->sTBProduct);
+                            message.setField(48, sLPProductCode);
                             message.setField(22, "9");
 
                             if(iOrderSize > 0)
@@ -898,17 +896,16 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                             cStringStream.precision(10);
                             if(bIsLiquidation == false)
                             {
-                                cStringStream << "Submitting new order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << ".";
+                                cStringStream << "Submitting new order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << " to " << sExchange << ".";
                             }
                             else
                             {
-                                cStringStream << "Submitting new liquidation order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << ".";
+                                cStringStream << "Submitting new liquidation order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << " to " << sExchange << ".";
                             }
                             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
                             cStringStream.str("");
                             cStringStream.clear();
 
-                            // TODO: check if session is up. Test what happens when we do send when the session is down
                             if(_bIsOrderSessionLoggedOn == true)
                             {
                                 if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
@@ -1228,8 +1225,6 @@ void QuickFixSchedulerFXMultiBook::onLogon(const SessionID& cSessionID)
 
 void QuickFixSchedulerFXMultiBook::onLogout(const SessionID&)
 {
-    // TODO: delete all existing orders on engine dying?
-    // TODO: handling exising orders on re-connect
 }
 
 void QuickFixSchedulerFXMultiBook::toAdmin(Message& cMessage, const SessionID& cSessionID)
@@ -1469,6 +1464,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
             }
             double dFillPrice = atof(cExecutionReport.getField(31).c_str());
 
+            // TODO need to work out the LP
             stringstream cStringStream;
             if(bIsLiquidationOrder == true)
             {
@@ -1766,7 +1762,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                             }
 
                             _cSubBookMarketDataLogger << cgetCurrentTime().igetPrintable()
-                                                      << "|" << sECN
                                                       << "|" << (*subQuoteItr).sProduct
                                                       << "|" << (*subQuoteItr).iBidSize
                                                       << "|" << (*subQuoteItr).iBestBidInTicks

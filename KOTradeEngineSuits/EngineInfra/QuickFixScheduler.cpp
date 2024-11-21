@@ -1923,7 +1923,6 @@ void QuickFixScheduler::amendOrderPriceInTicks(KOOrderPtr pOrder, long iPriceInT
     if(bcheckOrderMsgHistory(pOrder) == true)
     {
         double dNewPrice = iPriceInTicks * pOrder->_dTickSize;
-        //TODO test amend qty calcualtion
         long iNewQty = pOrder->igetOrderOrgQty();
 
         FIX::Message message;

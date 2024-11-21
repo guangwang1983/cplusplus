@@ -54,18 +54,6 @@ int main( int argc, char** argv )
         FIX::FileStoreFactory cFixStoreFactory(cFixSettings);
         FIX::FileLogFactory cFixLogFactory(cFixSettings);
 
-        std::ifstream fstream( sFixConfigFileName.c_str() );
-        char buffer[1024];
-        std::string line;
-        while( fstream.getline(buffer, sizeof(buffer)) )
-        {
-            line = string_strip( buffer );
-            if( isComment(line) )
-            {
-              continue;
-            }
-        }
-
         cQuickFixScheduler.init();
 
         FIX::SocketInitiator cFixSocketInitiator(cQuickFixScheduler, cFixStoreFactory, cFixSettings, cFixLogFactory /*optional*/);
