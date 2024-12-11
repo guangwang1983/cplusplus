@@ -193,6 +193,8 @@ QuoteData* SchedulerBase::pregisterProduct(string sFullProductName, InstrumentTy
     pNewQuoteDataPtr->cMarketOpenTime = _pStaticDataHandler->cGetMarketOpenTime(pNewQuoteDataPtr->sRoot, pNewQuoteDataPtr->sExchange);
     pNewQuoteDataPtr->cMarketCloseTime = _pStaticDataHandler->cGetMarketCloseTime(pNewQuoteDataPtr->sRoot, pNewQuoteDataPtr->sExchange);
 
+    pNewQuoteDataPtr->bCheckStaleness = true;
+
     _vContractQuoteDatas.push_back(pNewQuoteDataPtr);
     _cProductEngineMap.push_back(vector<TradeEngineBasePtr>());
 
@@ -273,14 +275,17 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
                 mLastExchangeUpdateTimes[_vContractQuoteDatas[i]->sExchange] = _vContractQuoteDatas[i]->cLastUpdateTime.sec();
             }
 
-            if(_vContractQuoteDatas[i]->bStalenessErrorTriggered == false)
+            if(_vContractQuoteDatas[i]->bCheckStaleness == true)
             {
-                if(_vContractQuoteDatas[i]->cLastUpdateTime.igetPrintable() != 0)
+                if(_vContractQuoteDatas[i]->bStalenessErrorTriggered == false)
                 {
-                    if((SystemClock::GetInstance()->cgetCurrentKOEpochTime() - _vContractQuoteDatas[i]->cLastUpdateTime).sec() > 3600)
+                    if(_vContractQuoteDatas[i]->cLastUpdateTime.igetPrintable() != 0)
                     {
-                        _vContractQuoteDatas[i]->bStalenessErrorTriggered = true;
-                        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, "Price staled for more than 1 hour");
+                        if((SystemClock::GetInstance()->cgetCurrentKOEpochTime() - _vContractQuoteDatas[i]->cLastUpdateTime).sec() > 3600)
+                        {
+                            _vContractQuoteDatas[i]->bStalenessErrorTriggered = true;
+                            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, "Price staled for more than 1 hour");
+                        }
                     }
                 }
             }
@@ -329,7 +334,7 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
     {
         if(mExchangeOpen[itr->first] == true)
         {
-            if(cCallTime.sec() - itr->second > 300)
+            if(cCallTime.sec() - itr->second > 900)
             {
                 std::map<string, bool>::iterator triggeredItr;
                 triggeredItr = _mExchangeStalenessTriggered.find(itr->first);
@@ -347,7 +352,7 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
                 if(bTriggered == false)
                 {
                     stringstream cStringStream;
-                    cStringStream << "Prices on " << itr->first << " staled for more than 5 mins";
+                    cStringStream << "Prices on " << itr->first << " staled for more than 15 mins";
                     ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
                     _mExchangeStalenessTriggered[itr->first] = true;
                 }

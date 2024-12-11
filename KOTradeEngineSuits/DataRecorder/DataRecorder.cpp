@@ -45,6 +45,8 @@ void DataRecorder::dayInit()
     {
         _pScheduler->addNewWakeupCall(_cTradingStartTime + KOEpochTime(i,0), this);
     }
+
+    vContractQuoteDatas[0]->bCheckStaleness = _bCheckDataStaled;
 }
 
 void DataRecorder::dayRun()
@@ -142,6 +144,7 @@ void DataRecorder::wakeup(KOEpochTime cCallTime)
 {
     (void) cCallTime;
 
+/*
     if(_iNumTimerCallsTriggered > 1800)
     {
         if((cCallTime - _cLastDataPointTime).sec() > 1800)
@@ -156,6 +159,7 @@ void DataRecorder::wakeup(KOEpochTime cCallTime)
             }
         }
     }
+*/
 
     if((cCallTime - _cTradingStartTime).sec() % _iFlushBufferSec == _iFlushPosition)
     {

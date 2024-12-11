@@ -75,7 +75,6 @@ void QuickFixSchedulerFXMultiBook::init()
 
     for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
     {
-
         QuoteData* pNewQuoteDataPtr;
 
         if(_cSchedulerCfg.vProducts[i].find("CFX") == 0)
@@ -289,10 +288,7 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
             if(pSubProduct->bDataSubscribed == false)
             {
                 string sTBExchange = "";
-                if(pSubProduct->sExchange.find("FXSS") != std::string::npos)
-                {
-                    sTBExchange = "FXSS";
-                }
+                sTBExchange = pSubProduct->sExchange;
         
                 int iMDSessionsIdx = 0;
                 const FIX::SessionID* pMarketDataSessionID = NULL;
@@ -700,6 +696,8 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                                 message.setField(54, "2");
                             }
 
+                            message.setField(207, "XXXX");
+
                             stringstream cQtyStream;
                             cQtyStream << abs(iOrderSize);
                             message.setField(38, cQtyStream.str());
@@ -709,8 +707,6 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                             cPriceStream.precision(10);
                             cPriceStream << dOrderPrice;
                             message.setField(44, cPriceStream.str()); // TODO: TEST all products with decimal prices ZT, ZF, ZN, I, L, FX
-
-                            message.setField(40, "2"); // limit order
 
                             if(pOrder->_bIsIOC)
                             {
@@ -871,6 +867,8 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                                 message.setField(54, "2");
                             }
 
+                            message.setField(207, "XXXX");
+
                             stringstream cQtyStream;
                             cQtyStream << abs(iOrderSize);
                             message.setField(38, cQtyStream.str());
@@ -880,8 +878,6 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                             cPriceStream.precision(10);
                             cPriceStream << dOrderPrice;
                             message.setField(44, cPriceStream.str()); // TODO: TEST all products with decimal prices ZT, ZF, ZN, I, L, FX
-
-                            message.setField(40, "2"); // limit order
 
                             if(pOrder->_bIsIOC)
                             {
