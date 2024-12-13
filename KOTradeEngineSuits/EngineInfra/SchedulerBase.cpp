@@ -290,9 +290,7 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
                 }
             }
 
-            if(_vContractQuoteDatas[i]->iBidSize == 0 ||
-               _vContractQuoteDatas[i]->iAskSize == 0 ||
-               _vContractQuoteDatas[i]->dBestAsk - _vContractQuoteDatas[i]->dBestBid < 0.00000001)
+            if(_vContractQuoteDatas[i]->dBestAsk - _vContractQuoteDatas[i]->dBestBid < 0.00000001 && _vContractQuoteDatas[i]->iBidSize != 0 && _vContractQuoteDatas[i]->iAskSize != 0)
             {
                 if(_vContractQuoteDatas[i]->bPriceValid == true)
                 {

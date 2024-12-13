@@ -496,6 +496,10 @@ void QuickFixScheduler::submitOrderBestPrice(unsigned int iProductIdx, long iQty
     {
         message.setField(207, "XCME");
     }
+    else if(_vContractQuoteDatas[iProductIdx]->sExchange == "XTMX")
+    {
+        message.setField(207, "XMOD");
+    }
 
     if(iQty > 0)
     {
