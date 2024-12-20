@@ -131,6 +131,10 @@ void QuickFixScheduler::checkProductsForPriceSubscription()
             {
                 sTBExchange = "ICE";
             } 
+            else if(_vContractQuoteDatas[i]->sExchange == "CFX")
+            {
+                sTBExchange = "FXSS";
+            } 
 
             int iMDSessionsIdx = 0;
             const FIX::SessionID* pMarketDataSessionID = NULL;
