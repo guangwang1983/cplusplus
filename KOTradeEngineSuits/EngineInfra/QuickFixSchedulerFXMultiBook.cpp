@@ -1,6 +1,5 @@
 #include "QuickFixSchedulerFXMultiBook.h"
 #include "ErrorHandler.h"
-#include "SystemClock.h"
 
 #include "quickfix/fix44/MarketDataRequest.h"
 #include "quickfix/fix44/ExecutionReport.h"
