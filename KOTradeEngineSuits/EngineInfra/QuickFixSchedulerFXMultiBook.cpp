@@ -137,7 +137,6 @@ void QuickFixSchedulerFXMultiBook::init()
         string root = _cSchedulerCfg.vFXSubProducts[i].substr(0, _cSchedulerCfg.vFXSubProducts[i].rfind("."));
         string sExchange = _cSchedulerCfg.vFXSubProducts[i].substr(_cSchedulerCfg.vFXSubProducts[i].rfind(".")+1);
         int iSubCID = -1;
-        int iParentCID = -1;
 
         for(unsigned int iCID = 0; iCID < _vContractQuoteDatas.size(); iCID++)
         {
@@ -154,7 +153,7 @@ void QuickFixSchedulerFXMultiBook::init()
                         itr->second.back().sExchange = sExchange;
                         itr->second.back().bDataSubscribed = false;
                         iSubCID = itr->second.size() - 1;
-                        iParentCID = iCID;
+                        itr->second.back().iCID = iSubCID;
                         break;
                     }
                 }
@@ -321,8 +320,8 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
                     message.getHeader().setField(35, "V");
 
                     message.setField(22, "9");
-               
-                    message.setField(48, _cSchedulerCfg.vFXSubProducts[iSubCID]);
+
+                    message.setField(48, pSubProduct->sTBProduct);
                     message.setField(15, _vContractQuoteDatas[iParentCID]->sCurrency);
 
                     stringstream cStringStream;
@@ -355,7 +354,6 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
 
                 pSubProduct->bDataSubscribed = true;
             }
-                
             iSubCID = iSubCID + 1;
         }
     }
@@ -708,6 +706,8 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                             cPriceStream << dOrderPrice;
                             message.setField(44, cPriceStream.str()); // TODO: TEST all products with decimal prices ZT, ZF, ZN, I, L, FX
 
+                            message.setField(40, "2"); // limit order
+
                             if(pOrder->_bIsIOC)
                             {
                                 message.setField(59, "4"); 
@@ -878,6 +878,8 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                             cPriceStream.precision(10);
                             cPriceStream << dOrderPrice;
                             message.setField(44, cPriceStream.str()); // TODO: TEST all products with decimal prices ZT, ZF, ZN, I, L, FX
+
+                            message.setField(40, "2"); // limit order
 
                             if(pOrder->_bIsIOC)
                             {
@@ -1460,15 +1462,17 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
             }
             double dFillPrice = atof(cExecutionReport.getField(31).c_str());
 
-            // TODO need to work out the LP
+            string sTBProduct = cExecutionReport.getField(48);
+            string sExchange = sTBProduct.substr(sTBProduct.rfind(".")+1);
+
             stringstream cStringStream;
             if(bIsLiquidationOrder == true)
             {
-                cStringStream << "Liquidation order Filled - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << " qty: " << iFillQty << " price: " << dFillPrice << ".";
+                cStringStream << "Liquidation order Filled - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << " qty: " << iFillQty << " price: " << dFillPrice << " from" << sExchange << ".";
             }
             else
             {
-                cStringStream << "Order Filled - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << " qty: " << iFillQty << " price: " << dFillPrice << ".";
+                cStringStream << "Order Filled - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << " qty: " << iFillQty << " price: " << dFillPrice << " from " << sExchange << ".";
             }
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
             cStringStream.str("");
@@ -1681,6 +1685,8 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
     double dLastTrade;
     long iLastTradeSize;
 
+    bool bTradeUpdate = false;
+    
     for(int i = 0; i < iNumEntries; i++)
     {
         cMarketDataSnapshotFullRefresh.getGroup(i+1, group);
@@ -1700,9 +1706,9 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
         }
         else if(MDEntryType == '2')
         {
+            bTradeUpdate = true;
             iLastTradeSize = MDEntrySize;
             dLastTrade = MDEntryPx;
-
         }
     }
 
@@ -1822,24 +1828,31 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
         iCombBestAskInTicks = boost::math::iround(dCombBestAsk / _vContractQuoteDatas[iCID]->dTickSize);
     }
 
-    _vContractQuoteDatas[iCID]->iTradeSize = 0;
-    _vContractQuoteDatas[iCID]->iPrevBidInTicks = _vContractQuoteDatas[iCID]->iBestBidInTicks;
-    _vContractQuoteDatas[iCID]->iPrevAskInTicks = _vContractQuoteDatas[iCID]->iBestAskInTicks;
-    _vContractQuoteDatas[iCID]->iPrevBidSize = _vContractQuoteDatas[iCID]->iBidSize;
-    _vContractQuoteDatas[iCID]->iPrevAskSize = _vContractQuoteDatas[iCID]->iAskSize;
 
-    _vContractQuoteDatas[iCID]->dBestBid = dCombBestBid;
-    _vContractQuoteDatas[iCID]->iBestBidInTicks = iCombBestBidInTicks;
-    _vContractQuoteDatas[iCID]->iBidSize = iCombBidSize;
+    if(bTradeUpdate == false)
+    {
+        _vContractQuoteDatas[iCID]->iTradeSize = 0;
 
-    _vContractQuoteDatas[iCID]->dBestAsk = dCombBestAsk;
-    _vContractQuoteDatas[iCID]->iBestAskInTicks = iCombBestAskInTicks;
-    _vContractQuoteDatas[iCID]->iAskSize = iCombAskSize;
+        _vContractQuoteDatas[iCID]->iPrevBidInTicks = _vContractQuoteDatas[iCID]->iBestBidInTicks;
+        _vContractQuoteDatas[iCID]->iPrevAskInTicks = _vContractQuoteDatas[iCID]->iBestAskInTicks;
+        _vContractQuoteDatas[iCID]->iPrevBidSize = _vContractQuoteDatas[iCID]->iBidSize;
+        _vContractQuoteDatas[iCID]->iPrevAskSize = _vContractQuoteDatas[iCID]->iAskSize;
 
-    _vContractQuoteDatas[iCID]->dLastTradePrice = dLastTrade;
-    _vContractQuoteDatas[iCID]->iLastTradeInTicks = boost::math::iround(_vContractQuoteDatas[iCID]->dLastTradePrice / _vContractQuoteDatas[iCID]->dTickSize);
-    _vContractQuoteDatas[iCID]->iTradeSize = iLastTradeSize;
-    _vContractQuoteDatas[iCID]->iAccumuTradeSize = _vContractQuoteDatas[iCID]->iAccumuTradeSize + iLastTradeSize;
+        _vContractQuoteDatas[iCID]->dBestBid = dCombBestBid;
+        _vContractQuoteDatas[iCID]->iBestBidInTicks = iCombBestBidInTicks;
+        _vContractQuoteDatas[iCID]->iBidSize = iCombBidSize;
+
+        _vContractQuoteDatas[iCID]->dBestAsk = dCombBestAsk;
+        _vContractQuoteDatas[iCID]->iBestAskInTicks = iCombBestAskInTicks;
+        _vContractQuoteDatas[iCID]->iAskSize = iCombAskSize;
+    }
+    else
+    {
+        _vContractQuoteDatas[iCID]->dLastTradePrice = dLastTrade;
+        _vContractQuoteDatas[iCID]->iLastTradeInTicks = boost::math::iround(_vContractQuoteDatas[iCID]->dLastTradePrice / _vContractQuoteDatas[iCID]->dTickSize);
+        _vContractQuoteDatas[iCID]->iTradeSize = iLastTradeSize;
+        _vContractQuoteDatas[iCID]->iAccumuTradeSize = _vContractQuoteDatas[iCID]->iAccumuTradeSize + iLastTradeSize;
+    }
 
     if(_vContractQuoteDatas[iCID]->iBidSize != 0 && _vContractQuoteDatas[iCID]->iAskSize != 0)
     {
@@ -1884,7 +1897,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(FIX44::BusinessMessageReject& cBusi
 
 void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject& cBusinessMessageReject, const FIX::SessionID& cSessionID)
 {
-    std::cerr <<"received business messag reject \n";
     FIX::Text cText;
     cBusinessMessageReject.get(cText);
     string sText = cText;
