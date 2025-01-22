@@ -312,46 +312,49 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
                 }
                 else
                 {
-                    FIX::Message message;
-                    message.getHeader().setField(8, "FIX.4.4");
-                    message.getHeader().setField(49, sSenderCompID);
-                    message.getHeader().setField(56, "TBRICKS");
-                    message.getHeader().setField(35, "V");
+                    if(bIsLoggedOn == true)
+                    {
+                        FIX::Message message;
+                        message.getHeader().setField(8, "FIX.4.4");
+                        message.getHeader().setField(49, sSenderCompID);
+                        message.getHeader().setField(56, "TBRICKS");
+                        message.getHeader().setField(35, "V");
 
-                    message.setField(22, "9");
+                        message.setField(22, "9");
 
-                    message.setField(48, pSubProduct->sTBProduct);
-                    message.setField(15, _vContractQuoteDatas[iParentCID]->sCurrency);
+                        message.setField(48, pSubProduct->sTBProduct);
+                        message.setField(15, _vContractQuoteDatas[iParentCID]->sCurrency);
 
-                    stringstream cStringStream;
-                    cStringStream << "_" << iParentCID << "_" << iSubCID;
-                    message.setField(262, cStringStream.str());
-                    message.setField(55, _cSchedulerCfg.vProducts[iParentCID]);
-                
-                    message.setField(263, "1"); // subcription type snapshot + updates
-                    message.setField(264, "1"); // tob only
-                    message.setField(265, "0"); // full refresh
+                        stringstream cStringStream;
+                        cStringStream << "_" << iParentCID << "_" << iSubCID;
+                        message.setField(262, cStringStream.str());
+                        message.setField(55, _cSchedulerCfg.vProducts[iParentCID]);
+                    
+                        message.setField(263, "1"); // subcription type snapshot + updates
+                        message.setField(264, "1"); // tob only
+                        message.setField(265, "0"); // full refresh
 
-                    // number requested data field - bid size|bid|offer|offer size
-                    FIX44::MarketDataRequest::NoMDEntryTypes cMDEntryGroup;
-                    cMDEntryGroup.set(FIX::MDEntryType('0'));
-                    message.addGroup(cMDEntryGroup);
-                    cMDEntryGroup.set(FIX::MDEntryType('1'));
-                    message.addGroup(cMDEntryGroup);
-                    cMDEntryGroup.set(FIX::MDEntryType('2'));
-                    message.addGroup(cMDEntryGroup);
-                
-                    // number of requested instrument
-                    message.setField(146, "1");
+                        // number requested data field - bid size|bid|offer|offer size
+                        FIX44::MarketDataRequest::NoMDEntryTypes cMDEntryGroup;
+                        cMDEntryGroup.set(FIX::MDEntryType('0'));
+                        message.addGroup(cMDEntryGroup);
+                        cMDEntryGroup.set(FIX::MDEntryType('1'));
+                        message.addGroup(cMDEntryGroup);
+                        cMDEntryGroup.set(FIX::MDEntryType('2'));
+                        message.addGroup(cMDEntryGroup);
+                    
+                        // number of requested instrument
+                        message.setField(146, "1");
 
-                    FIX::Session::sendToTarget(message, *pMarketDataSessionID);
+                        FIX::Session::sendToTarget(message, *pMarketDataSessionID);
 
-                    stringstream cLogStringStream;
-                    cLogStringStream << "Sending market data subscription request for sub FX product " << pSubProduct->sTBProduct;
-                    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _cSchedulerCfg.vProducts[iParentCID], cLogStringStream.str());
+                        stringstream cLogStringStream;
+                        cLogStringStream << "Sending market data subscription request for sub FX product " << pSubProduct->sTBProduct;
+                        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _cSchedulerCfg.vProducts[iParentCID], cLogStringStream.str());
+
+                        pSubProduct->bDataSubscribed = true;
+                    }
                 }
-
-                pSubProduct->bDataSubscribed = true;
             }
             iSubCID = iSubCID + 1;
         }
@@ -1167,7 +1170,10 @@ void QuickFixSchedulerFXMultiBook::onTimer()
         }
     }
 
-    _cSubBookMarketDataLogger.flush();
+    if(cNewUpdateTime.sec() % 2 == 0)
+    {
+        _cSubBookMarketDataLogger.flush();
+    }
 }
 
 void QuickFixSchedulerFXMultiBook::onCreate(const SessionID& cSessionID)
@@ -1562,9 +1568,12 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
         {
             if(pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGDELETE || pOrderToBeUpdated->bgetIsIOC())
             {
+                string sTBProduct = cExecutionReport.getField(48);
+                string sExchange = sTBProduct.substr(sTBProduct.rfind(".")+1);
+
                 stringstream cStringStream;
                 cStringStream.precision(10);
-                cStringStream << "Order cancel acked - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << ".";
+                cStringStream << "Order cancel acked - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << " from " << sExchange << ".";
                 ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
 
                 _vLastOrderError[iProductIdx] = "";

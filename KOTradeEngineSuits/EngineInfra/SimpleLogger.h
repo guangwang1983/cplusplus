@@ -115,7 +115,7 @@ public:
 	}
 
 private:
-    char _buffer[1000000];
+    char _buffer[50000];
 
 	fstream _fLogFile;
 	bool _bIsLogging;

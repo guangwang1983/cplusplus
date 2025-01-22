@@ -551,7 +551,11 @@ void SchedulerBase::wakeup(KOEpochTime cCallTime)
         }
         _eNextPendingManualCommand = NONE;
 
-        _cMarketDataLogger.flush();
+        if(cCallTime.sec() % 2 == 1)
+        {
+            _cMarketDataLogger.flush();
+        }
+
         _cOrderActionLogger.flush();
         ErrorHandler::GetInstance()->flush();
     }

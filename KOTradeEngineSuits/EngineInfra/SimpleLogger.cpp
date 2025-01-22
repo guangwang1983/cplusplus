@@ -15,7 +15,7 @@ void SimpleLogger::openFile(string sFullLogName, bool bIsLogging, bool bIsAppend
 
 	if(_bIsLogging)
 	{
-        _fLogFile.rdbuf()->pubsetbuf(_buffer, 2000000);
+        _fLogFile.rdbuf()->pubsetbuf(_buffer, 50000);
         if(bIsAppend)
         {
     		_fLogFile.open(sFullLogName.c_str(), fstream::out | fstream::app);
