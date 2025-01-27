@@ -151,6 +151,8 @@ void QuickFixSchedulerFXMultiBook::init()
                         itr->second.back().sTBProduct = _cSchedulerCfg.vFXSubProducts[i];
                         itr->second.back().sExchange = sExchange;
                         itr->second.back().bDataSubscribed = false;
+                        itr->second.back().bStalenessErrorTriggered = false;
+                        itr->second.back().cLastUpdateTime = KOEpochTime();
                         iSubCID = itr->second.size() - 1;
                         itr->second.back().iCID = iSubCID;
                         break;
@@ -626,7 +628,7 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                         }
                     }
 
-                    if(bIgnoreLP == false)
+                    if(bIgnoreLP == false && subQuoteItr->bStalenessErrorTriggered == false)
                     {
                         stringstream cStringStreamPrice;
                         cStringStreamPrice.precision(10);
@@ -799,7 +801,7 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                         }
                     }
 
-                    if(bIgnoreLP == false)
+                    if(bIgnoreLP == false && subQuoteItr->bStalenessErrorTriggered == false)
                     {
                         stringstream cStringStreamPrice;
                         cStringStreamPrice.precision(10);
@@ -1166,6 +1168,26 @@ void QuickFixSchedulerFXMultiBook::onTimer()
                 stringstream cStringStream;
                 cStringStream << "Market data session " << _vMDSessions[i].sSenderCompID << " not logged on 10 seconds after engine start";
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+            }
+        }
+    }
+
+    for(map<unsigned int, vector<QuoteData>>::iterator itr = _vProductMultiBooks.begin(); itr != _vProductMultiBooks.end(); itr++)
+    {
+        for(vector<QuoteData>::iterator pSubProduct = itr->second.begin(); pSubProduct != itr->second.end(); pSubProduct++)
+        {
+            if(pSubProduct->cLastUpdateTime.sec() != 0)
+            {
+                if((cNewUpdateTime - pSubProduct->cLastUpdateTime).sec() > 100)
+                {
+                    if(pSubProduct->bStalenessErrorTriggered == false)
+                    {
+                        pSubProduct->bStalenessErrorTriggered = true;
+                        stringstream cStringStream;
+                        cStringStream << "FX pricing on " << pSubProduct->sProduct << " stopped";
+                        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                    }
+                }
             }
         }
     }
@@ -1771,6 +1793,17 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                                 subQuoteItr->iAskSize = iProdAskSize;
                             }
 
+                            subQuoteItr->cLastUpdateTime = cgetCurrentTime();
+
+                            if(subQuoteItr->bStalenessErrorTriggered == true)
+                            {
+                                stringstream cStringStream;
+                                cStringStream << "FX pricing on " << subQuoteItr->sProduct << " resumed";
+                                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+
+                                subQuoteItr->bStalenessErrorTriggered = false;
+                            }
+
                             _cSubBookMarketDataLogger << cgetCurrentTime().igetPrintable()
                                                       << "|" << (*subQuoteItr).sProduct
                                                       << "|" << (*subQuoteItr).iBidSize
@@ -1793,7 +1826,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                         }
                     }
 
-                    if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0)
+                    if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false)
                     {
                         if(subQuoteItr->iBestBidInTicks > iCombBestBidInTicks)
                         {
