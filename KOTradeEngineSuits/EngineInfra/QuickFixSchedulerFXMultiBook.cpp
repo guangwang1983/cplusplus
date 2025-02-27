@@ -1178,7 +1178,7 @@ void QuickFixSchedulerFXMultiBook::onTimer()
         {
             if(pSubProduct->cLastUpdateTime.sec() != 0)
             {
-                if((cNewUpdateTime - pSubProduct->cLastUpdateTime).sec() > 100)
+                if((cNewUpdateTime - pSubProduct->cLastUpdateTime).sec() > 300)
                 {
                     if(pSubProduct->bStalenessErrorTriggered == false)
                     {

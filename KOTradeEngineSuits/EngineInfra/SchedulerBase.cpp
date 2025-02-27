@@ -292,22 +292,25 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
 
             if(_vContractQuoteDatas[i]->dBestAsk - _vContractQuoteDatas[i]->dBestBid < 0.00000001 && _vContractQuoteDatas[i]->iBidSize != 0 && _vContractQuoteDatas[i]->iAskSize != 0)
             {
-                if(_vContractQuoteDatas[i]->bPriceValid == true)
+                if(_vContractQuoteDatas[i]->bCheckStaleness == true)
                 {
-                    _vContractQuoteDatas[i]->bPriceValid = false;
-                    _vContractQuoteDatas[i]->cPriceInvalidTime = cCallTime;
-                }
-                else
-                {
-                    if((cCallTime - _vContractQuoteDatas[i]->cPriceInvalidTime).sec() > 100)
+                    if(_vContractQuoteDatas[i]->bPriceValid == true)
                     {
-                        if(_vContractQuoteDatas[i]->bPriceInvalidTriggered == false)
+                        _vContractQuoteDatas[i]->bPriceValid = false;
+                        _vContractQuoteDatas[i]->cPriceInvalidTime = cCallTime;
+                    }
+                    else
+                    {
+                        if((cCallTime - _vContractQuoteDatas[i]->cPriceInvalidTime).sec() > 301)
                         {
-                            _vContractQuoteDatas[i]->bPriceInvalidTriggered = true;
+                            if(_vContractQuoteDatas[i]->bPriceInvalidTriggered == false)
+                            {
+                                _vContractQuoteDatas[i]->bPriceInvalidTriggered = true;
 
-                            stringstream cStringStream;
-                            cStringStream << "Invalid price for more than 100 seconds " << _vContractQuoteDatas[i]->iBidSize << "|" << _vContractQuoteDatas[i]->dBestBid << "|" << _vContractQuoteDatas[i]->iBestBidInTicks << "|" << _vContractQuoteDatas[i]->iBestAskInTicks << "|" << _vContractQuoteDatas[i]->dBestAsk << "|" << _vContractQuoteDatas[i]->iAskSize;
-                            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cStringStream.str());
+                                stringstream cStringStream;
+                                cStringStream << "Invalid price for more than 300 seconds " << _vContractQuoteDatas[i]->iBidSize << "|" << _vContractQuoteDatas[i]->dBestBid << "|" << _vContractQuoteDatas[i]->iBestBidInTicks << "|" << _vContractQuoteDatas[i]->iBestAskInTicks << "|" << _vContractQuoteDatas[i]->dBestAsk << "|" << _vContractQuoteDatas[i]->iAskSize;
+                                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cStringStream.str());
+                            }
                         }
                     }
                 }

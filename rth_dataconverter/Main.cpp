@@ -343,7 +343,7 @@ int main(int argc, char *argv[])
     long iNumSpreadSample = 0;
  
     string sStartOfDayTime = sDate.substr(0,4) + "-" + sDate.substr(4,2) + "-" + sDate.substr(6,2) + "T00:00:01Z000000";
-    long iStartOfDayTimeUTC = iFromStringToEpoch(sStartOfDayTime.c_str()) * 1000000;
+    long iStartOfDayTimeUTC = (iFromStringToEpoch(sStartOfDayTime.c_str()) - 10800) * 1000000;
 	
 	FileFormat eFileFormat = UNKNOWN;
 	fstream ifsInputFile;

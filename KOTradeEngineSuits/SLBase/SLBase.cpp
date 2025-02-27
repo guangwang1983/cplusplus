@@ -520,14 +520,14 @@ void SLBase::wakeup(KOEpochTime cCallTime)
 
     if(_bValidStatsSeen == false)
     {
-        if(_iNumWakeupSeen > 300)
+        if(_iNumWakeupSeen > 900)
         {
             if(_bInvalidStatTriggered == false)
             {
                 _bInvalidStatTriggered = true;
 
                 stringstream cStringStream;
-                cStringStream << "Engine stats invalid after 5 minutes of trading!";
+                cStringStream << "Engine stats invalid after 15 minutes of trading!";
                 ErrorHandler::GetInstance()->newErrorMsg("0", _sEngineSlotName, vContractQuoteDatas[0]->sProduct, cStringStream.str());            
             }
         }
