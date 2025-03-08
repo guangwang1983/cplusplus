@@ -197,9 +197,12 @@ void Instrument::updatePriceValid()
 
 	_bPriceValid = _iBidSize != 0 && _iAskSize != 0 && _iBidAskSpread <= _iMaxSpreadWidth;
 
-    if(_eInstrumentType == KO_FUTURE || _bIsLiveTrading == false)
+    if(_eInstrumentType != KO_FX)
     {
-        _bPriceValid = _bPriceValid && _dRealBestAsk - _dRealBestBid > 0.00000001;
+        if(_bIsLiveTrading == false)
+        {
+            _bPriceValid = _bPriceValid && _dRealBestAsk - _dRealBestBid > 0.00000001;
+        }
     }
 }
 
