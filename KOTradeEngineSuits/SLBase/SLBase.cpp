@@ -173,7 +173,7 @@ void SLBase::loadTriggerSpace()
                 _cQuotingEndTime = _cTradingEndTime - KOEpochTime(1,0);
             }
 
-            _pScheduler->addNewEngineCall(this, EngineEvent::TRADE, _cQuotingStartTime);
+            _pScheduler->addNewEngineCall(this, EngineEvent::TRADE, _cTradingStartTime);
 
             std::getline(cTriggerStream, sElement, ';');
             string sPatTimeOffSet = sElement;            
@@ -232,19 +232,25 @@ void SLBase::dayInit()
         _pQuoteInstrument->useWeightedStdev(_iStdevLength, false, KOEpochTime(0,0), 60, _cVolStartTime, _cVolEndTime, _bIsSV);
     }
 
-    KOEpochTime cEngineLiveDuration = _cTradingEndTime - _cTradingStartTime;
+    KOEpochTime cEngineActualStartTime = _cTradingStartTime;
+    if(SystemClock::GetInstance()->cgetCurrentKOEpochTime() > _cTradingStartTime)
+    {
+        cEngineActualStartTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime() + KOEpochTime(5,0);
+    }
+    KOEpochTime cEngineLiveDuration = _cTradingEndTime - cEngineActualStartTime;
+
     for(int i = 0; i < cEngineLiveDuration.sec();i++)
     {
         if(_pScheduler->_cSchedulerCfg.bUse100ms == true)
         {
             for(int j = 0; j < 10; j++)
             {
-                _pScheduler->addNewWakeupCall(_cTradingStartTime + KOEpochTime(i, j*100000), this);
+                _pScheduler->addNewWakeupCall(cEngineActualStartTime + KOEpochTime(i, j*100000), this);
             }
         }
         else
         {
-            _pScheduler->addNewWakeupCall(_cTradingStartTime + KOEpochTime(i,0), this);
+            _pScheduler->addNewWakeupCall(cEngineActualStartTime + KOEpochTime(i,0), this);
         }
     }
 }
