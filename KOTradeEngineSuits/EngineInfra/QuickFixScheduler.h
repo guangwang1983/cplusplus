@@ -46,7 +46,7 @@ public:
 
     virtual void onCreate(const SessionID& cSessionID);
     virtual void onLogon(const SessionID& cSessionID);
-    virtual void onLogout(const SessionID&);
+    virtual void onLogout(const SessionID& cSessionID);
     virtual void toAdmin(Message& cMessage, const SessionID& cSessionID);
     virtual void toApp(Message& cMessage, const SessionID& cSessionID) throw(DoNotSend);
     virtual void fromAdmin(const Message& cMessage, const SessionID& cSessionID) throw(FieldNotFound, IncorrectDataFormat, IncorrectTagValue, RejectLogon);
@@ -87,6 +87,8 @@ private:
     void resetOrderState();
     virtual void updateAllPnL();
     bool bcheckOrderMsgHistory(KOOrderPtr pOrder);
+
+    void updateQuoteDataSubscribed();
 
     bool _bIsLiveTrading;
     bool _bScheduleFinished;

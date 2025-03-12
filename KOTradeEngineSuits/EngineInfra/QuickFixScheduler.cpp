@@ -997,8 +997,93 @@ void QuickFixScheduler::onLogon(const SessionID& cSessionID)
     }
 }
 
-void QuickFixScheduler::onLogout(const SessionID&)
+void QuickFixScheduler::onLogout(const SessionID& cSessionID)
 {
+    string sSenderCompID = cSessionID.getSenderCompID();
+
+    if(sSenderCompID.find("MD") != std::string::npos)
+    {
+        for(int i = 0; i < _vMDSessions.size(); i++)
+        {
+            if(_vMDSessions[i].sSenderCompID == sSenderCompID)
+            {
+                if(_vMDSessions[i].bIsLoggedOn == true)
+                {
+                    _vMDSessions[i].bIsLoggedOn = false;
+                    updateQuoteDataSubscribed();
+                    stringstream cStringStream;
+                    cStringStream << "Disconnected from market data fix session " << sSenderCompID;
+                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                }
+
+                stringstream cStringStream;
+                cStringStream << "Disconnected from market data fix session " << sSenderCompID;
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+                break;
+            }
+        }
+    }
+    else if(sSenderCompID.find("TR") != std::string::npos)
+    {
+        if(_bIsOrderSessionLoggedOn == true)
+        {
+            stringstream cStringStream;
+            cStringStream << "Disconnected from order fix session " << _sOrderSenderCompID;
+            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+        }
+
+        _bIsOrderSessionLoggedOn = false;
+        stringstream cStringStream;
+        cStringStream << "Disconnected from order fix session " << _sOrderSenderCompID;
+        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+    }
+}
+
+void QuickFixScheduler::updateQuoteDataSubscribed()
+{
+    for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
+    {
+        string sTBExchange = "NONE";
+        if(_vContractQuoteDatas[i]->sExchange == "XTMX" || _vContractQuoteDatas[i]->sExchange == "XASX")
+        {
+            sTBExchange = "ACTIV";
+        }
+        else if(_vContractQuoteDatas[i]->sExchange == "XCME")
+        {
+            sTBExchange = "CME";
+        }
+        else if(_vContractQuoteDatas[i]->sExchange == "XEUR")
+        {
+            sTBExchange = "EUREX";
+        }
+        else if(_vContractQuoteDatas[i]->sExchange == "XLIF")
+        {
+            sTBExchange = "ICE";
+        }
+
+        int iMDSessionsIdx = 0;
+        const FIX::SessionID* pMarketDataSessionID = NULL;
+        string sSenderCompID = "";
+        bool bIsLoggedOn = false;
+        for(;iMDSessionsIdx < _vMDSessions.size();iMDSessionsIdx++)
+        {
+            if(_vMDSessions[iMDSessionsIdx].sSenderCompID.find(sTBExchange) != std::string::npos)
+            {
+                pMarketDataSessionID = _vMDSessions[iMDSessionsIdx].pFixSessionID;
+                sSenderCompID = _vMDSessions[iMDSessionsIdx].sSenderCompID;
+                bIsLoggedOn = _vMDSessions[iMDSessionsIdx].bIsLoggedOn;
+                break;
+            }
+        }
+
+        if(pMarketDataSessionID != NULL)
+        {
+            if(bIsLoggedOn == false)
+            {
+                _vContractQuoteDatas[i]->bDataSubscribed = false;
+            }
+        }
+    }
 }
 
 void QuickFixScheduler::toAdmin(Message& cMessage, const SessionID& cSessionID)
@@ -1023,9 +1108,6 @@ void QuickFixScheduler::fromApp(const Message& cMessage, const SessionID& cSessi
 
 void QuickFixScheduler::onMessage(const FIX44::Logout& cLogout, const FIX::SessionID& cSessionID)
 {
-    FIX::Text cText;
-    cLogout.get(cText);
-
     string sSenderCompID = cSessionID.getSenderCompID();
 
     if(sSenderCompID.find("MD") != std::string::npos)
@@ -1034,20 +1116,36 @@ void QuickFixScheduler::onMessage(const FIX44::Logout& cLogout, const FIX::Sessi
         {
             if(_vMDSessions[i].sSenderCompID == sSenderCompID)
             {
-                _vMDSessions[i].bIsLoggedOn = false;
+                if(_vMDSessions[i].bIsLoggedOn == true)
+                {
+                    _vMDSessions[i].bIsLoggedOn = false;
+                    updateQuoteDataSubscribed();
+
+                    stringstream cStringStream;
+                    cStringStream << "Disconnected from market data fix session " << sSenderCompID;
+                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                }
+
                 stringstream cStringStream;
-                cStringStream << "Logged out from market data fix session " << sSenderCompID << ". Reason: " << cText;
-                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                cStringStream << "Disconnected from market data fix session " << sSenderCompID;
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
                 break;
             }
         }
     }
     else if(sSenderCompID.find("TR") != std::string::npos)
     {
+        if(_bIsOrderSessionLoggedOn == true)
+        {
+            stringstream cStringStream;
+            cStringStream << "Disconnected from order fix session " << _sOrderSenderCompID;
+            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+        }
+
         _bIsOrderSessionLoggedOn = false;
         stringstream cStringStream;
-        cStringStream << "Logged out from order fix session " << _sOrderSenderCompID << ". Reason: " << cText;
-        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+        cStringStream << "Disconnected from order fix session " << _sOrderSenderCompID;
+        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
     }
 }
 
