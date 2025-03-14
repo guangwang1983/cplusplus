@@ -1146,12 +1146,6 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                             }
                         }
                     }
-                    else
-                    {
-                        stringstream cStringStream;
-                        cStringStream << "No patient figures defined for product " << *itrFigureProducts;
-                        ErrorHandler::GetInstance()->newInfoMsg("0", (*itrEngine)->sgetEngineSlotName(), *itrFigureProducts, cStringStream.str());
-                    }
 
                     map<string, boost::shared_ptr< vector <string> > >::iterator productFlatFiguresItr = _mProductFigureFlat.find(*itrFigureProducts);
                     if(productFlatFiguresItr != _mProductFigureFlat.end())
@@ -1275,12 +1269,6 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                             }
                         }
                     }
-                    else
-                    {
-                        stringstream cStringStream;
-                        cStringStream << "No flat figures defined for product " << *itrFigureProducts;
-                        ErrorHandler::GetInstance()->newInfoMsg("0", (*itrEngine)->sgetEngineSlotName(), *itrFigureProducts, cStringStream.str());
-                    }
 
                     map<string, boost::shared_ptr< vector <string> > >::iterator productFlatOffFiguresItr = _mProductFigureFlatOff.find(*itrFigureProducts);
                     if(productFlatOffFiguresItr != _mProductFigureFlatOff.end())
@@ -1320,12 +1308,6 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                             }
                         }
                     }
-                    else
-                    {
-                        stringstream cStringStream;
-                        cStringStream << "No flat off figures defined for product " << *itrFigureProducts;
-                        ErrorHandler::GetInstance()->newInfoMsg("0", (*itrEngine)->sgetEngineSlotName(), *itrFigureProducts, cStringStream.str());
-                    }
 
                     map<string, boost::shared_ptr< vector <string> > >::iterator productFlatBigFiguresItr = _mProductFigureFlatBig.find(*itrFigureProducts);
                     if(productFlatBigFiguresItr != _mProductFigureFlatBig.end())
@@ -1364,12 +1346,6 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                                 ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
                             }
                         }
-                    }
-                    else
-                    {
-                        stringstream cStringStream;
-                        cStringStream << "No flat off figures defined for product " << *itrFigureProducts;
-                        ErrorHandler::GetInstance()->newInfoMsg("0", (*itrEngine)->sgetEngineSlotName(), *itrFigureProducts, cStringStream.str());
                     }
 
                     map<string, boost::shared_ptr< vector <string> > >::iterator productHaltFiguresItr = _mProductFigureHalt.find(*itrFigureProducts);
@@ -1451,12 +1427,6 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                             }
                         }
                     }
-                    else
-                    {
-                        stringstream cStringStream;
-                        cStringStream << "No halt figures defined for product " << *itrFigureProducts;
-                        ErrorHandler::GetInstance()->newInfoMsg("0", (*itrEngine)->sgetEngineSlotName(), *itrFigureProducts, cStringStream.str());
-                    }
 
                     map<string, boost::shared_ptr< vector <string> > >::iterator productFlatHittingFiguresItr = _mProductFigureFlatHitting.find(*itrFigureProducts);
                     if(productFlatHittingFiguresItr != _mProductFigureFlatHitting.end())
@@ -1499,12 +1469,6 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                                 ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
                             }
                         }
-                    }
-                    else
-                    {
-                        stringstream cStringStream;
-                        cStringStream << "No flat hitting figures defined for product " << *itrFigureProducts;
-                        ErrorHandler::GetInstance()->newInfoMsg("0", (*itrEngine)->sgetEngineSlotName(), *itrFigureProducts, cStringStream.str());
                     }
 
                     map<string, boost::shared_ptr< vector <string> > >::iterator productFlatFXHittingFiguresItr = _mProductFigureFlatFXHitting.find(*itrFigureProducts);
@@ -1549,12 +1513,6 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                             }
                         }
                     }
-                    else
-                    {
-                        stringstream cStringStream;
-                        cStringStream << "No flat FX hitting figures defined for product " << *itrFigureProducts;
-                        ErrorHandler::GetInstance()->newInfoMsg("0", (*itrEngine)->sgetEngineSlotName(), *itrFigureProducts, cStringStream.str());
-                    }
 
                     map<string, boost::shared_ptr< vector <string> > >::iterator productFlatFXLongHittingFiguresItr = _mProductFigureFlatFXLongHitting.find(*itrFigureProducts);
                     if(productFlatFXLongHittingFiguresItr != _mProductFigureFlatFXLongHitting.end())
@@ -1598,13 +1556,6 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                             }
                         }
                     }
-                    else
-                    {
-                        stringstream cStringStream;
-                        cStringStream << "No flat FX hitting figures defined for product " << *itrFigureProducts;
-                        ErrorHandler::GetInstance()->newInfoMsg("0", (*itrEngine)->sgetEngineSlotName(), *itrFigureProducts, cStringStream.str());
-                    }
-
 
                     map<string, boost::shared_ptr< vector <string> > >::iterator productSlowFlatFiguresItr = _mProductFigureSlowFlat.find(*itrFigureProducts);
                     if(productSlowFlatFiguresItr != _mProductFigureSlowFlat.end())
@@ -1709,12 +1660,6 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                                 ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
                             }
                         }
-                    }
-                    else
-                    {
-                        stringstream cStringStream;
-                        cStringStream << "No slow flat figures defined for product " << *itrFigureProducts;
-                        ErrorHandler::GetInstance()->newInfoMsg("0", (*itrEngine)->sgetEngineSlotName(), *itrFigureProducts, cStringStream.str());
                     }
                 }
             }

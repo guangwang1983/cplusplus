@@ -235,7 +235,7 @@ void SLBase::dayInit()
     KOEpochTime cEngineActualStartTime = _cTradingStartTime;
     if(SystemClock::GetInstance()->cgetCurrentKOEpochTime() > _cTradingStartTime)
     {
-        cEngineActualStartTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime() + KOEpochTime(30,0);
+        cEngineActualStartTime = KOEpochTime((SystemClock::GetInstance()->cgetCurrentKOEpochTime() + KOEpochTime(30,0)).sec(), 0);
     }
     KOEpochTime cEngineLiveDuration = _cTradingEndTime - cEngineActualStartTime;
 
