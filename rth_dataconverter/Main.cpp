@@ -1115,7 +1115,7 @@ int main(int argc, char *argv[])
                                             cNewTickDataPoint.iTradeSize = 0;
                                             cNewTickDataPoint.iAccumuTradeSize = iAccumuTradeSize;
 
-                                            if(iAskInTicks - iBidInTicks > 1)
+                                            if(iAskInTicks - iBidInTicks != 1)
                                             {
                                                 dWeightedMidInTicks = (double)(iAskInTicks + iBidInTicks) / 2;
                                             }
