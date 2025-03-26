@@ -274,6 +274,9 @@ void SLSL::dayRun()
 {
     _cLogger << "Daily strategy run " << std::endl;
 
+    _pSignalInstrument->newMarketUpdate(vContractQuoteDatas[1]);
+    _dLastSignalMid = _pSignalInstrument->dgetWeightedMid();
+
     SLBase::dayRun();
 
     _cLogger << "Daily strategy run finished " << std::endl;

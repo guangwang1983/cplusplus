@@ -349,6 +349,11 @@ void SL3L::dayRun()
 {
     _cLogger << "Daily strategy run " << std::endl;
 
+    _pSpreadFrontInstrument->newMarketUpdate(vContractQuoteDatas[1]);
+    _dLastSpreadFrontMid = _pSpreadFrontInstrument->dgetWeightedMid();
+    _pSpreadBackInstrument->newMarketUpdate(vContractQuoteDatas[2]);
+    _dLastSpreadBackMid = _pSpreadBackInstrument->dgetWeightedMid();
+
     SLBase::dayRun();
 
     _cLogger << "Daily strategy run finished " << std::endl;

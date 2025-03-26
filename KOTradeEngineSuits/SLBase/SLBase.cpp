@@ -267,6 +267,9 @@ void SLBase::dayTrade()
 
 void SLBase::dayRun()
 {
+    _pQuoteInstrument->newMarketUpdate(vContractQuoteDatas[0]);
+    _dLastQuoteMid = _pQuoteInstrument->dgetWeightedMid();
+
     TradeEngineBase::dayRun();
 }
 
