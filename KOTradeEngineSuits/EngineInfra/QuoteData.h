@@ -99,6 +99,8 @@ struct QuoteData
     KOEpochTime                     cLastUpdateTime;
 
     bool                            bDataSubscribed;
+    bool                            bDataSubscriptionPending;
+    string                          sSubscriptionRejectReason;
 
     bool                            bCheckStaleness;
 };

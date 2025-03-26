@@ -81,6 +81,8 @@ void QuickFixScheduler::init()
         pNewQuoteDataPtr->iProductExpoLimit = _cSchedulerCfg.vProductExpoLimit[i];
 
         pNewQuoteDataPtr->bDataSubscribed = false;
+        pNewQuoteDataPtr->bDataSubscriptionPending = false;
+        pNewQuoteDataPtr->sSubscriptionRejectReason = "";
 
         _vProductOrderList.push_back(vector<KOOrderPtr>());
         _vProductDesiredPos.push_back(0);
@@ -112,7 +114,7 @@ void QuickFixScheduler::checkProductsForPriceSubscription()
 {
     for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
     {
-        if(_vContractQuoteDatas[i]->bDataSubscribed == false)
+        if(_vContractQuoteDatas[i]->bDataSubscribed == false && _vContractQuoteDatas[i]->bDataSubscriptionPending == false)
         {
             string sTBExchange = "NONE";
             if(_vContractQuoteDatas[i]->sExchange == "XTMX" || _vContractQuoteDatas[i]->sExchange == "XASX")
@@ -197,7 +199,7 @@ void QuickFixScheduler::checkProductsForPriceSubscription()
                     cLogStringStream << "Sending market data subscription request for " << _cSchedulerCfg.vProducts[i] << " TB Code " << _cSchedulerCfg.vTBProducts[i] << ".";
                     ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cLogStringStream.str());
 
-                    _vContractQuoteDatas[i]->bDataSubscribed = true;
+                    _vContractQuoteDatas[i]->bDataSubscriptionPending = true;
                 }
             }
         }
@@ -1177,9 +1179,18 @@ void QuickFixScheduler::onMessage(const FIX44::MarketDataRequestReject& cReject,
     int iCID;
     iCID = atoi(cReject.getField(262).c_str());
 
+    _vContractQuoteDatas[iCID]->bDataSubscriptionPending = false;
+
+    if(_vContractQuoteDatas[iCID]->sSubscriptionRejectReason != cText)
+    {
+        _vContractQuoteDatas[iCID]->sSubscriptionRejectReason = cText;
+        stringstream cStringStream;
+        cStringStream << "Market Data request " << _vContractQuoteDatas[iCID]->sProduct << " rejected. Reason: " << cText;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    }
     stringstream cStringStream;
     cStringStream << "Market Data request " << _vContractQuoteDatas[iCID]->sProduct << " rejected. Reason: " << cText;
-    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
 }
 
 void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport, const FIX::SessionID& cSessionID)
@@ -1497,6 +1508,8 @@ void QuickFixScheduler::onMessage(const FIX44::MarketDataSnapshotFullRefresh& cM
     int iCID;
     iCID = atoi(cMarketDataSnapshotFullRefresh.getField(262).c_str());
 
+    _vContractQuoteDatas[iCID]->bDataSubscriptionPending = false;
+
     int iNumEntries;
     iNumEntries = atoi(cMarketDataSnapshotFullRefresh.getField(268).c_str());
 
@@ -1504,6 +1517,7 @@ void QuickFixScheduler::onMessage(const FIX44::MarketDataSnapshotFullRefresh& cM
     FIX::MDEntryType MDEntryType;
     FIX::MDEntryPx MDEntryPx;
     FIX::MDEntrySize MDEntrySize;
+    FIX::Text MDText;
 
     long iBidSize;
     double dBestBid;
@@ -1517,14 +1531,30 @@ void QuickFixScheduler::onMessage(const FIX44::MarketDataSnapshotFullRefresh& cM
     _vContractQuoteDatas[iCID]->iPrevAskInTicks = _vContractQuoteDatas[iCID]->iBestAskInTicks;
     _vContractQuoteDatas[iCID]->iPrevBidSize = _vContractQuoteDatas[iCID]->iBidSize;
     _vContractQuoteDatas[iCID]->iPrevAskSize = _vContractQuoteDatas[iCID]->iAskSize;
+    _vContractQuoteDatas[iCID]->bDataSubscribed = true;
 
     for(int i = 0; i < iNumEntries; i++)
     {
         cMarketDataSnapshotFullRefresh.getGroup(i+1, group);
+
+        if(group.isSetField(58) == true)
+        {
+            group.get(MDText);
+            if(MDText == "Source unavailable")
+            {
+                _vContractQuoteDatas[iCID]->bDataSubscribed = false;
+                _vContractQuoteDatas[iCID]->bDataSubscriptionPending = false;
+                stringstream cStringStream;
+                cStringStream << "Tbrick data pricing on " << _vContractQuoteDatas[iCID]->sProduct << " stopped!";
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                break;
+            }
+        }
+
         group.get(MDEntryType);
         group.get(MDEntryPx);
         group.get(MDEntrySize);
-
+       
         if(MDEntryType == '0')
         {
             iBidSize = MDEntrySize;
@@ -1553,6 +1583,11 @@ void QuickFixScheduler::onMessage(const FIX44::MarketDataSnapshotFullRefresh& cM
             _vContractQuoteDatas[iCID]->iTradeSize = iLastTradeSize;
             _vContractQuoteDatas[iCID]->iAccumuTradeSize = _vContractQuoteDatas[iCID]->iAccumuTradeSize + iLastTradeSize;
         }
+    }
+
+    if(_vContractQuoteDatas[iCID]->bDataSubscribed == true)
+    {
+        _vContractQuoteDatas[iCID]->sSubscriptionRejectReason = "";
     }
 
     if(_vContractQuoteDatas[iCID]->iBidSize != 0 && _vContractQuoteDatas[iCID]->iAskSize != 0)
@@ -1608,14 +1643,42 @@ void QuickFixScheduler::onMessage(const FIX44::BusinessMessageReject& cBusinessM
     cBusinessMessageReject.get(cText);
     string sText = cText;
 
+    string sSenderCompID = cSessionID.getSenderCompID();
+   
     FIX::RefMsgType cRefMsgType;
     cBusinessMessageReject.get(cRefMsgType);
 
     if(cRefMsgType ==  "V")
     {
         stringstream cStringStream;
-        cStringStream << "Unable to register market data for session " << cSessionID.getSenderCompID() << ". Reason: " << cText;
+        cStringStream << "Unable to register market data for session " << sSenderCompID << ". Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+
+        for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
+        {
+            string sTBExchange = "NONE";
+            if(_vContractQuoteDatas[i]->sExchange == "XTMX" || _vContractQuoteDatas[i]->sExchange == "XASX")
+            {
+                sTBExchange = "ACTIV";
+            }
+            else if(_vContractQuoteDatas[i]->sExchange == "XCME")
+            {
+                sTBExchange = "CME";
+            }
+            else if(_vContractQuoteDatas[i]->sExchange == "XEUR")
+            {
+                sTBExchange = "EUREX";
+            }
+            else if(_vContractQuoteDatas[i]->sExchange == "XLIF")
+            {
+                sTBExchange = "ICE";
+            }
+
+            if(sSenderCompID.find(sTBExchange) != std::string::npos)
+            {
+                _vContractQuoteDatas[i]->bDataSubscriptionPending = false;
+            }
+        }
     }
     else if(cRefMsgType == "D")
     {

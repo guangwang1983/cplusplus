@@ -105,6 +105,8 @@ void QuickFixSchedulerFXMultiBook::init()
         pNewQuoteDataPtr->iProductExpoLimit = _cSchedulerCfg.vProductExpoLimit[i];
 
         pNewQuoteDataPtr->bDataSubscribed = false;
+        pNewQuoteDataPtr->bDataSubscriptionPending = false;
+        pNewQuoteDataPtr->sSubscriptionRejectReason = "";
 
         _vProductOrderList.push_back(vector<KOOrderPtr>());
         _vProductDesiredPos.push_back(0);
@@ -151,6 +153,8 @@ void QuickFixSchedulerFXMultiBook::init()
                         itr->second.back().sTBProduct = _cSchedulerCfg.vFXSubProducts[i];
                         itr->second.back().sExchange = sExchange;
                         itr->second.back().bDataSubscribed = false;
+                        itr->second.back().bDataSubscriptionPending = false;
+                        itr->second.back().sSubscriptionRejectReason = "";
                         itr->second.back().bStalenessErrorTriggered = false;
                         itr->second.back().cLastUpdateTime = KOEpochTime();
                         iSubCID = itr->second.size() - 1;
@@ -190,7 +194,7 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
     {
         if(_cSchedulerCfg.vProducts[i].find("CFX") == std::string::npos)
         {
-            if(_vContractQuoteDatas[i]->bDataSubscribed == false)
+            if(_vContractQuoteDatas[i]->bDataSubscribed == false && _vContractQuoteDatas[i]->bDataSubscriptionPending == false)
             {
                 string sTBExchange = "NONE";
                 if(_vContractQuoteDatas[i]->sExchange == "XTMX" || _vContractQuoteDatas[i]->sExchange == "XASX")
@@ -271,7 +275,7 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
                         cLogStringStream << "Sending market data subscription request for " << _cSchedulerCfg.vProducts[i] << " TB Code " << _cSchedulerCfg.vTBProducts[i] << ".";
                         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cLogStringStream.str());
 
-                        _vContractQuoteDatas[i]->bDataSubscribed = true;
+                        _vContractQuoteDatas[i]->bDataSubscriptionPending = true;
                     }
                 }
             }
@@ -285,7 +289,7 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
         int iSubCID = 0;
         for(vector<QuoteData>::iterator pSubProduct = itr->second.begin(); pSubProduct != itr->second.end(); pSubProduct++)
         {
-            if(pSubProduct->bDataSubscribed == false)
+            if(pSubProduct->bDataSubscribed == false && pSubProduct->bDataSubscriptionPending == false)
             {
                 string sTBExchange = "";
                 sTBExchange = pSubProduct->sExchange;
@@ -353,7 +357,7 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
                         cLogStringStream << "Sending market data subscription request for sub FX product " << pSubProduct->sTBProduct;
                         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _cSchedulerCfg.vProducts[iParentCID], cLogStringStream.str());
 
-                        pSubProduct->bDataSubscribed = true;
+                        pSubProduct->bDataSubscriptionPending = true;
                     }
                 }
             }
@@ -1484,9 +1488,17 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataRequestRejec
                 {
                     if(iSubCID == subQuoteItr->iCID)
                     {
+                        subQuoteItr->bDataSubscriptionPending = false;
+                        if(subQuoteItr->sSubscriptionRejectReason != cText)
+                        {
+                            subQuoteItr->sSubscriptionRejectReason = cText;
+                            stringstream cStringStream;
+                            cStringStream << "Market Data request " << subQuoteItr->sProduct << " rejected. Reason: " << cText;
+                            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                        }
                         stringstream cStringStream;
                         cStringStream << "Market Data request " << subQuoteItr->sProduct << " rejected. Reason: " << cText;
-                        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
                     }
                 }
             }
@@ -1495,9 +1507,18 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataRequestRejec
     else
     {
         int iCID = atoi(sClientRef.c_str());
+
+        _vContractQuoteDatas[iCID]->bDataSubscriptionPending = false;
+        if(_vContractQuoteDatas[iCID]->sSubscriptionRejectReason != cText)
+        {
+            _vContractQuoteDatas[iCID]->sSubscriptionRejectReason = cText;
+            stringstream cStringStream;
+            cStringStream << "Market Data request " << _vContractQuoteDatas[iCID]->sProduct << " rejected. Reason: " << cText;
+            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+        }
         stringstream cStringStream;
         cStringStream << "Market Data request " << _vContractQuoteDatas[iCID]->sProduct << " rejected. Reason: " << cText;
-        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
     }
 }
 
@@ -1826,6 +1847,8 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
 
 void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFullRefresh& cMarketDataSnapshotFullRefresh, const FIX::SessionID& cSessionID)
 {
+    string sClientRef = cMarketDataSnapshotFullRefresh.getField(262);
+        
     int iNumEntries;
     iNumEntries = atoi(cMarketDataSnapshotFullRefresh.getField(268).c_str());
 
@@ -1833,6 +1856,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
     FIX::MDEntryType MDEntryType;
     FIX::MDEntryPx MDEntryPx;
     FIX::MDEntrySize MDEntrySize;
+    FIX::Text MDText;
 
     long iProdBidSize = -1;
     double dProdBestBid = -1;
@@ -1850,10 +1874,22 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
     long iLastTradeSize;
 
     bool bTradeUpdate = false;
-    
+    bool bSubscriptionReset = false;   
+ 
     for(int i = 0; i < iNumEntries; i++)
     {
         cMarketDataSnapshotFullRefresh.getGroup(i+1, group);
+
+        if(group.isSetField(58) == true)
+        {
+            group.get(MDText);
+            if(MDText == "Source unavailable")
+            {
+                bSubscriptionReset = true;
+                break;
+            }
+        }
+
         group.get(MDEntryType);
         group.get(MDEntryPx);
         group.get(MDEntrySize);
@@ -1876,7 +1912,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
         }
     }
 
-    string sClientRef = cMarketDataSnapshotFullRefresh.getField(262);
 
     int iCID;
     if(sClientRef.c_str()[0] == '_')
@@ -1901,52 +1936,16 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                 {
                     if(iSubCID == subQuoteItr->iCID)
                     {
-                        string sECN = subQuoteItr->sExchange;
-                        for(vector<string>::iterator itrLP = _vForbiddenFXLPs.begin(); itrLP != _vForbiddenFXLPs.end(); itrLP++)
+                        if(bSubscriptionReset == true)
                         {
-                            if(sECN == (*itrLP))
-                            {
-                                bIgnoreLP = true;
-                                break;
-                            }
-                        }
+                            subQuoteItr->bDataSubscribed = false;
+                            subQuoteItr->bDataSubscriptionPending = false;
+                            subQuoteItr->sSubscriptionRejectReason = "";
 
-                        if(bIgnoreLP == false)
-                        {
-                            if(iProdBidSize > 0)
-                            {
-                                subQuoteItr->dBestBid = dProdBestBid;
-                                subQuoteItr->iBestBidInTicks = boost::math::iround(subQuoteItr->dBestBid / subQuoteItr->dTickSize);
-                                subQuoteItr->iBidSize = iProdBidSize;
-                            }
+                            stringstream cStringStream;
+                            cStringStream << "Tbrick data pricing on " << subQuoteItr->sProduct << " stopped!";
+                            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
 
-                            if(iProdAskSize > 0)
-                            {
-                                subQuoteItr->dBestAsk = dProdBestAsk;
-                                subQuoteItr->iBestAskInTicks = boost::math::iround(subQuoteItr->dBestAsk / subQuoteItr->dTickSize);
-                                subQuoteItr->iAskSize = iProdAskSize;
-                            }
-
-                            subQuoteItr->cLastUpdateTime = cgetCurrentTime();
-
-                            if(subQuoteItr->bStalenessErrorTriggered == true)
-                            {
-                                stringstream cStringStream;
-                                cStringStream << "FX pricing on " << subQuoteItr->sProduct << " resumed";
-                                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-
-                                subQuoteItr->bStalenessErrorTriggered = false;
-                            }
-
-                            _cSubBookMarketDataLogger << cgetCurrentTime().igetPrintable()
-                                                      << "|" << (*subQuoteItr).sProduct
-                                                      << "|" << (*subQuoteItr).iBidSize
-                                                      << "|" << (*subQuoteItr).iBestBidInTicks
-                                                      << "|" << (*subQuoteItr).iBestAskInTicks
-                                                      << "|" << (*subQuoteItr).iAskSize << "\n";
-                        }
-                        else
-                        {
                             subQuoteItr->dBestBid = 0;
                             subQuoteItr->iBestBidInTicks = 0;
                             subQuoteItr->iBidSize = 0;
@@ -1954,9 +1953,70 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                             subQuoteItr->dBestAsk = 999999.0;
                             subQuoteItr->iBestAskInTicks = 999999999;
                             subQuoteItr->iAskSize = 0;
+                        }
+                        else
+                        {
+                            subQuoteItr->bDataSubscribed = true;
+                            subQuoteItr->bDataSubscriptionPending = false;
+                            subQuoteItr->sSubscriptionRejectReason = "";
 
-                            _cSubBookMarketDataLogger << cgetCurrentTime().igetPrintable()
-                                                      << "|Ignoring price update from forbidden LP " << sECN << "\n";
+                            string sECN = subQuoteItr->sExchange;
+                            for(vector<string>::iterator itrLP = _vForbiddenFXLPs.begin(); itrLP != _vForbiddenFXLPs.end(); itrLP++)
+                            {
+                                if(sECN == (*itrLP))
+                                {
+                                    bIgnoreLP = true;
+                                    break;
+                                }
+                            }
+
+                            if(bIgnoreLP == false)
+                            {
+                                if(iProdBidSize > 0)
+                                {
+                                    subQuoteItr->dBestBid = dProdBestBid;
+                                    subQuoteItr->iBestBidInTicks = boost::math::iround(subQuoteItr->dBestBid / subQuoteItr->dTickSize);
+                                    subQuoteItr->iBidSize = iProdBidSize;
+                                }
+
+                                if(iProdAskSize > 0)
+                                {
+                                    subQuoteItr->dBestAsk = dProdBestAsk;
+                                    subQuoteItr->iBestAskInTicks = boost::math::iround(subQuoteItr->dBestAsk / subQuoteItr->dTickSize);
+                                    subQuoteItr->iAskSize = iProdAskSize;
+                                }
+
+                                subQuoteItr->cLastUpdateTime = cgetCurrentTime();
+
+                                if(subQuoteItr->bStalenessErrorTriggered == true)
+                                {
+                                    stringstream cStringStream;
+                                    cStringStream << "FX pricing on " << subQuoteItr->sProduct << " resumed";
+                                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+
+                                    subQuoteItr->bStalenessErrorTriggered = false;
+                                }
+
+                                _cSubBookMarketDataLogger << cgetCurrentTime().igetPrintable()
+                                                          << "|" << (*subQuoteItr).sProduct
+                                                          << "|" << (*subQuoteItr).iBidSize
+                                                          << "|" << (*subQuoteItr).iBestBidInTicks
+                                                          << "|" << (*subQuoteItr).iBestAskInTicks
+                                                          << "|" << (*subQuoteItr).iAskSize << "\n";
+                            }
+                            else
+                            {
+                                subQuoteItr->dBestBid = 0;
+                                subQuoteItr->iBestBidInTicks = 0;
+                                subQuoteItr->iBidSize = 0;
+
+                                subQuoteItr->dBestAsk = 999999.0;
+                                subQuoteItr->iBestAskInTicks = 999999999;
+                                subQuoteItr->iAskSize = 0;
+
+                                _cSubBookMarketDataLogger << cgetCurrentTime().igetPrintable()
+                                                          << "|Ignoring price update from forbidden LP " << sECN << "\n";
+                            }
                         }
                     }
 
@@ -1994,13 +2054,26 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
     {
         iCID = atoi(cMarketDataSnapshotFullRefresh.getField(262).c_str());
 
-        dCombBestBid = dProdBestBid;
-        dCombBestAsk = dProdBestAsk;
-        iCombBidSize = iProdBidSize;
-        iCombAskSize = iProdAskSize;
+        if(bSubscriptionReset == true)
+        {
+            _vContractQuoteDatas[iCID]->bDataSubscribed = false;
+            _vContractQuoteDatas[iCID]->bDataSubscriptionPending = false;
+            _vContractQuoteDatas[iCID]->sSubscriptionRejectReason = "";
+        }
+        else
+        {
+            _vContractQuoteDatas[iCID]->bDataSubscribed = true;
+            _vContractQuoteDatas[iCID]->bDataSubscriptionPending = false;
+            _vContractQuoteDatas[iCID]->sSubscriptionRejectReason = "";
 
-        iCombBestBidInTicks = boost::math::iround(dCombBestBid / _vContractQuoteDatas[iCID]->dTickSize);
-        iCombBestAskInTicks = boost::math::iround(dCombBestAsk / _vContractQuoteDatas[iCID]->dTickSize);
+            dCombBestBid = dProdBestBid;
+            dCombBestAsk = dProdBestAsk;
+            iCombBidSize = iProdBidSize;
+            iCombAskSize = iProdAskSize;
+
+            iCombBestBidInTicks = boost::math::iround(dCombBestBid / _vContractQuoteDatas[iCID]->dTickSize);
+            iCombBestAskInTicks = boost::math::iround(dCombBestAsk / _vContractQuoteDatas[iCID]->dTickSize);
+        }
     }
 
 
@@ -2083,6 +2156,8 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
     cBusinessMessageReject.get(cText);
     string sText = cText;
 
+    string sSenderCompID = cSessionID.getSenderCompID();
+
     FIX::RefMsgType cRefMsgType;
     cBusinessMessageReject.get(cRefMsgType);
 
@@ -2091,6 +2166,43 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
         stringstream cStringStream;
         cStringStream << "Unable to register market data for session " << cSessionID.getSenderCompID() << ". Reason: " << cText;
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+
+        for(unsigned int i = 0; i < _cSchedulerCfg.vProducts.size(); ++i)
+        {
+            string sTBExchange = "NONE";
+            if(_vContractQuoteDatas[i]->sExchange == "XTMX" || _vContractQuoteDatas[i]->sExchange == "XASX")
+            {
+                sTBExchange = "ACTIV";
+            }
+            else if(_vContractQuoteDatas[i]->sExchange == "XCME")
+            {
+                sTBExchange = "CME";
+            }
+            else if(_vContractQuoteDatas[i]->sExchange == "XEUR")
+            {
+                sTBExchange = "EUREX";
+            }
+            else if(_vContractQuoteDatas[i]->sExchange == "XLIF")
+            {
+                sTBExchange = "ICE";
+            }
+
+            if(sSenderCompID.find(sTBExchange) != std::string::npos)
+            {
+                _vContractQuoteDatas[i]->bDataSubscriptionPending = false;
+            }
+        }
+
+        for(map<unsigned int, vector<QuoteData>>::iterator itr = _vProductMultiBooks.begin(); itr != _vProductMultiBooks.end(); itr++)
+        {
+            for(vector<QuoteData>::iterator subQuoteItr = itr->second.begin(); subQuoteItr != itr->second.end(); subQuoteItr++)
+            {
+                if(sSenderCompID.find(subQuoteItr->sExchange) != std::string::npos)
+                {
+                    subQuoteItr->bDataSubscriptionPending = false;
+                }
+            }
+        }
     }
     else if(cRefMsgType == "D")
     {
