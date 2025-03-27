@@ -235,8 +235,11 @@ void SLRL::dayRun()
 
     for(unsigned int i = 0;i < vContractQuoteDatas.size(); i++)
     {
-        _vInstruments[i-1]->newMarketUpdate(vContractQuoteDatas[i]);
-        _vLastInstrumentsMid[i-1] = _vInstruments[i-1]->dgetWeightedMid();
+        if(i >= 1)
+        {
+            _vInstruments[i-1]->newMarketUpdate(vContractQuoteDatas[i]);
+            _vLastInstrumentsMid[i-1] = _vInstruments[i-1]->dgetWeightedMid();
+        }
     }
 
     SLBase::dayRun();
