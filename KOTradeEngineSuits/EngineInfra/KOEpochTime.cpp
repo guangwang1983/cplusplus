@@ -60,7 +60,7 @@ bool KOEpochTime::operator>(KOEpochTime rhs)
 
 bool KOEpochTime::operator>=(KOEpochTime rhs)
 {
-    return this->igetPrintable() > rhs.igetPrintable();
+    return this->igetPrintable() >= rhs.igetPrintable();
 }
 
 bool KOEpochTime::operator!=(KOEpochTime rhs)

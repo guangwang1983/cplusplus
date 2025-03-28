@@ -403,7 +403,6 @@ void SLBase::updateEngineStateOnTimer(KOEpochTime cCallTime)
     {
         if(!_bIsQuoteTime)
         {
-
             _cLogger << "Quoting start time reached \n";
             stringstream cStringStream;
             cStringStream << "Quoting start time reached";
