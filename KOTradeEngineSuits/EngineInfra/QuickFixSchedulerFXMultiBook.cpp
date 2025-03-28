@@ -589,11 +589,11 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
 
     if(bIsIOC == true)
     {
-        if(_vContractQuoteDatas[iProductIdx]->iBestAskInTicks - _vContractQuoteDatas[iProductIdx]->iBestBidInTicks > 20)
+        if(_vContractQuoteDatas[iProductIdx]->iBestAskInTicks - _vContractQuoteDatas[iProductIdx]->iBestBidInTicks > 25)
         {
             stringstream cStringStream;
             cStringStream.precision(10);
-            cStringStream << "Ignore new Order submit. Spread width greater than 20.";
+            cStringStream << "Ignore new Order submit. Spread width greater than 25.";
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
             return;
         }
