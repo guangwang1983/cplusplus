@@ -101,6 +101,9 @@ struct QuoteData
     bool                            bDataSubscribed;
     bool                            bDataSubscriptionPending;
     string                          sSubscriptionRejectReason;
+    
+    int                             iNumConsecutiveRejects;
+    bool                            bIgnoreVenue;
 
     bool                            bCheckStaleness;
 };

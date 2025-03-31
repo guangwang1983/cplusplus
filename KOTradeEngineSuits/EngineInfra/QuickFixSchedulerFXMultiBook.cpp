@@ -137,6 +137,7 @@ void QuickFixSchedulerFXMultiBook::init()
 
         string root = _cSchedulerCfg.vFXSubProducts[i].substr(0, _cSchedulerCfg.vFXSubProducts[i].rfind("."));
         string sExchange = _cSchedulerCfg.vFXSubProducts[i].substr(_cSchedulerCfg.vFXSubProducts[i].rfind(".")+1);
+
         int iSubCID = -1;
 
         for(unsigned int iCID = 0; iCID < _vContractQuoteDatas.size(); iCID++)
@@ -156,6 +157,8 @@ void QuickFixSchedulerFXMultiBook::init()
                         itr->second.back().bDataSubscriptionPending = false;
                         itr->second.back().sSubscriptionRejectReason = "";
                         itr->second.back().bStalenessErrorTriggered = false;
+                        itr->second.back().iNumConsecutiveRejects = 0;
+                        itr->second.back().bIgnoreVenue = false;
                         itr->second.back().cLastUpdateTime = KOEpochTime();
                         iSubCID = itr->second.size() - 1;
                         itr->second.back().iCID = iSubCID;
@@ -621,17 +624,17 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                 {
                     string sECN = subQuoteItr->sExchange;
 
-                    bool bIgnoreLP = false;
+                    bool bForbiddenLP = false;
                     for(vector<string>::iterator itrLP = _vForbiddenFXLPs.begin(); itrLP != _vForbiddenFXLPs.end(); itrLP++)
                     {
                         if(sECN == (*itrLP))
                         {
-                            bIgnoreLP = true;
+                            bForbiddenLP = true;
                             break;
                         }
                     }
 
-                    if(bIgnoreLP == false && subQuoteItr->bStalenessErrorTriggered == false)
+                    if(bForbiddenLP == false && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false)
                     {
                         stringstream cStringStreamPrice;
                         cStringStreamPrice.precision(10);
@@ -674,8 +677,11 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
 
                         if(iOrderSize != 0)
                         {
+                            stringstream cOrderIDStream;
+                            cOrderIDStream << iProductIdx << "_" << LPItr->iLPIdx << "_" << sgetNextFixOrderID();
+
                             KOOrderPtr pOrder;
-                            string sPendingOrderID = sgetNextFixOrderID();
+                            string sPendingOrderID = cOrderIDStream.str();
                             pOrder.reset(new KOOrder(sPendingOrderID, iProductIdx, _vContractQuoteDatas[iProductIdx]->dTickSize, bIsIOC, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sExchange, _vContractQuoteDatas[iProductIdx]->eInstrumentType, NULL));
 
                             FIX::Message message;
@@ -794,17 +800,17 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                 {
                     string sECN = subQuoteItr->sExchange;
 
-                    bool bIgnoreLP = false;
+                    bool bForbiddenLP = false;
                     for(vector<string>::iterator itrLP = _vForbiddenFXLPs.begin(); itrLP != _vForbiddenFXLPs.end(); itrLP++)
                     {
                         if(sECN == (*itrLP))
                         {
-                            bIgnoreLP = true;
+                            bForbiddenLP = true;
                             break;
                         }
                     }
 
-                    if(bIgnoreLP == false && subQuoteItr->bStalenessErrorTriggered == false)
+                    if(bForbiddenLP == false && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false)
                     {
                         stringstream cStringStreamPrice;
                         cStringStreamPrice.precision(10);
@@ -847,8 +853,11 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
 
                         if(iOrderSize != 0)
                         {
+                            stringstream cOrderIDStream;
+                            cOrderIDStream << iProductIdx << "_" << LPItr->iLPIdx << "_" << sgetNextFixOrderID();
+
                             KOOrderPtr pOrder;
-                            string sPendingOrderID = sgetNextFixOrderID();
+                            string sPendingOrderID = cOrderIDStream.str();
                             pOrder.reset(new KOOrder(sPendingOrderID, iProductIdx, _vContractQuoteDatas[iProductIdx]->dTickSize, bIsIOC, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sExchange, _vContractQuoteDatas[iProductIdx]->eInstrumentType, NULL));
 
                             FIX::Message message;
@@ -1748,6 +1757,38 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
                 string sTBProduct = cExecutionReport.getField(48);
                 string sExchange = sTBProduct.substr(sTBProduct.rfind(".")+1);
 
+                std::istringstream cIDStream (sClientOrderID);
+
+                string sParentCID;
+                std::getline(cIDStream, sParentCID, '_');
+                int iCID = atoi(sParentCID.c_str());
+
+                string sSubCID;
+                std::getline(cIDStream, sSubCID, '_');
+                int iSubCID = atoi(sSubCID.c_str());
+
+                for(map<unsigned int, vector<QuoteData>>::iterator itr = _vProductMultiBooks.begin(); itr != _vProductMultiBooks.end(); itr++)
+                {
+                    if(itr->first == iCID)
+                    {
+                        for(vector<QuoteData>::iterator subQuoteItr = itr->second.begin(); subQuoteItr != itr->second.end(); subQuoteItr++)
+                        {
+                            if(iSubCID == subQuoteItr->iCID)
+                            {
+                                subQuoteItr->iNumConsecutiveRejects = subQuoteItr->iNumConsecutiveRejects + 1;
+                                if(subQuoteItr->iNumConsecutiveRejects == 3)
+                                {
+                                    subQuoteItr->bIgnoreVenue = true;
+
+                                    stringstream cStringStream;
+                                    cStringStream << "More than 3 order rejects received from " << sExchange << ". Ignore LP.";
+                                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                }
+                            }
+                        }
+                    }
+                }
+
                 stringstream cStringStream;
                 cStringStream.precision(10);
                 cStringStream << "Order cancel acked - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << " from " << sExchange << ".";
@@ -1782,10 +1823,45 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
             cExecutionReport.get(cText);
             string sRejectReason = cText;
 
+            string sTBProduct = cExecutionReport.getField(48);
+            string sExchange = sTBProduct.substr(sTBProduct.rfind(".")+1);
+
             if(pOrderToBeUpdated->_eOrderState == KOOrder::PENDINGCREATION)
             {
+                std::istringstream cIDStream (sClientOrderID);
+
+                string sParentCID;
+                std::getline(cIDStream, sParentCID, '_');
+                int iCID = atoi(sParentCID.c_str());
+
+                string sSubCID;
+                std::getline(cIDStream, sSubCID, '_');
+                int iSubCID = atoi(sSubCID.c_str());
+
+                for(map<unsigned int, vector<QuoteData>>::iterator itr = _vProductMultiBooks.begin(); itr != _vProductMultiBooks.end(); itr++)
+                {
+                    if(itr->first == iCID)
+                    {
+                        for(vector<QuoteData>::iterator subQuoteItr = itr->second.begin(); subQuoteItr != itr->second.end(); subQuoteItr++)
+                        {
+                            if(iSubCID == subQuoteItr->iCID)
+                            {
+                                subQuoteItr->iNumConsecutiveRejects = subQuoteItr->iNumConsecutiveRejects + 1;
+                                if(subQuoteItr->iNumConsecutiveRejects == 3)
+                                {
+                                    subQuoteItr->bIgnoreVenue = true;
+
+                                    stringstream cStringStream;
+                                    cStringStream << "More than 3 order rejects received from " << sExchange << ". Ignore LP.";
+                                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                }
+                            }
+                        }
+                    }
+                }
+
                 stringstream cStringStream;
-                cStringStream << "Submit rejected. Pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID " << sTBOrderID << ". Reason: " << sRejectReason << ".";
+                cStringStream << "Submit rejected. Pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID " << sTBOrderID << ". Reason: " << sRejectReason << " from " << sExchange << ".";
 
                 if(_vLastOrderError[iProductIdx] != cStringStream.str())
                 {
@@ -1927,7 +2003,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
         std::getline(cIDStream, sSubCID, '_');
         int iSubCID = atoi(sSubCID.c_str());
 
-        bool bIgnoreLP = false;
+        bool bForbiddenLP = false;
         for(map<unsigned int, vector<QuoteData>>::iterator itr = _vProductMultiBooks.begin(); itr != _vProductMultiBooks.end(); itr++)
         {
             if(itr->first == iCID)
@@ -1960,17 +2036,20 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                             subQuoteItr->bDataSubscriptionPending = false;
                             subQuoteItr->sSubscriptionRejectReason = "";
 
+                            subQuoteItr->iNumConsecutiveRejects = 0;
+                            subQuoteItr->bIgnoreVenue = false;
+
                             string sECN = subQuoteItr->sExchange;
                             for(vector<string>::iterator itrLP = _vForbiddenFXLPs.begin(); itrLP != _vForbiddenFXLPs.end(); itrLP++)
                             {
                                 if(sECN == (*itrLP))
                                 {
-                                    bIgnoreLP = true;
+                                    bForbiddenLP = true;
                                     break;
                                 }
                             }
 
-                            if(bIgnoreLP == false)
+                            if(bForbiddenLP == false)
                             {
                                 if(iProdBidSize > 0)
                                 {
@@ -2020,7 +2099,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                         }
                     }
 
-                    if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false)
+                    if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false)
                     {
                         if(subQuoteItr->iBestBidInTicks > iCombBestBidInTicks)
                         {
