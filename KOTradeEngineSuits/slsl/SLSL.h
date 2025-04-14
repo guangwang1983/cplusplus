@@ -42,7 +42,8 @@ public:
          KOEpochTime cTradingEndTime,
          SchedulerBase* pScheduler,
          string sTodayDate,
-         const string& sSimType);
+         const string& sSimType,
+         KOEpochTime cSlotFirstWakeupCallTime);
 
 	virtual ~SLSL();
 	

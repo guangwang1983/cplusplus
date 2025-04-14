@@ -77,9 +77,19 @@ void TradeSignalMerger::writeEoDResult(const string& sResultPath, const string& 
             double dContractSize = _mProductToContractSize[itr->sProduct];
             double dDollarRate = _mProductToDollarRate[itr->sProduct];
             double dTradingFee = _mProductToTradingFee[itr->sProduct];
+            double FXDominatorUSDRate = _mProductFXDominatorUSDRate[itr->sProduct];
 
-            double dNewFee = (double)abs(itr->iQty) * dTradingFee;
-            double dNewConsideration = (-1.0 * (double)itr->iQty * itr->dPrice * dContractSize - dNewFee) * dDollarRate;
+            double dNewFee;
+            if(itr->eInstrumentType == KO_FX)
+            {
+                dNewFee =  (double)abs(itr->iQty) * FXDominatorUSDRate * dTradingFee;
+            }
+            else
+            {
+                dNewFee = (double)abs(itr->iQty) * dTradingFee * dDollarRate;
+            }
+
+            double dNewConsideration = (-1.0 * (double)itr->iQty * itr->dPrice * dContractSize * dDollarRate) - dNewFee;
 
             if(mProductsPnL.find(itr->sProduct) == mProductsPnL.end())
             {
@@ -137,13 +147,14 @@ void TradeSignalMerger::writeEoDResult(const string& sResultPath, const string& 
     }
 }
 
-int TradeSignalMerger::registerTradingSlot(const string& sProduct, const string& sSlotName, double dContractSize, double dDollarRate, double dTradingFee)
+int TradeSignalMerger::registerTradingSlot(const string& sProduct, const string& sSlotName, double dContractSize, double dDollarRate, double dTradingFee, double dDominatorUSDRate)
 {
     if(_mSlotSignals.find(sProduct) == _mSlotSignals.end())
     {
         _mSlotSignals[sProduct] = vector<SlotSignal>();
         _mProductToContractSize[sProduct] = dContractSize;
         _mProductToDollarRate[sProduct] = dDollarRate;
+        _mProductFXDominatorUSDRate[sProduct] = dDominatorUSDRate;
         _mProductToTradingFee[sProduct] = dTradingFee;
         _mProductPrintPos[sProduct] = false;
     }
@@ -498,7 +509,7 @@ void TradeSignalMerger::aggregateAndSend(const string& sProduct)
     _pScheduler->sendToLiquidationExecutor(sProduct, 0);
 }
 
-void TradeSignalMerger::onFill(const string& sProduct, int iQty, double dPrice, bool bIsLiquidationFill)
+void TradeSignalMerger::onFill(const string& sProduct, int iQty, double dPrice, bool bIsLiquidationFill, InstrumentType eInstrumentType)
 {
 //std::cerr << SystemClock::GetInstance()->cgetCurrentKOEpochTime().igetPrintable() << "TradeSignalMerger received external fill " << sProduct << " Qty " << iQty << " Price " << dPrice << "\n";
 
@@ -507,6 +518,7 @@ void TradeSignalMerger::onFill(const string& sProduct, int iQty, double dPrice, 
     _vTotalTrades.back().sProduct = sProduct;
     _vTotalTrades.back().iQty = iQty;
     _vTotalTrades.back().dPrice = dPrice;
+    _vTotalTrades.back().eInstrumentType = eInstrumentType;
 
     vector<vector<SlotSignal>::iterator> vFilledOrderList;
     vector<vector<SlotSignal>::iterator> vFullOrderList;

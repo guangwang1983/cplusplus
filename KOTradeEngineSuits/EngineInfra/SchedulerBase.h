@@ -141,7 +141,7 @@ public:
     virtual void assignPositionToLiquidator(const string& sProduct, long iPosToLiquidate) = 0;
     virtual double dgetFillRatio(const string& sProduct) { (void)sProduct; return 0; };
 
-    virtual void onFill(const string& sProduct, long iFilledQty, double dPrice, bool bIsLiquidator);
+    virtual void onFill(const string& sProduct, long iFilledQty, double dPrice, bool bIsLiquidator, InstrumentType eInstrumentType);
 
     virtual void updateAllPnL(){};
 protected:
@@ -176,6 +176,7 @@ protected:
     KOEpochTime _cTimerEnd;
     KOEpochTime _cActualStartedTime;
     KOEpochTime _cShutDownTime;
+    KOEpochTime _cSlotFirstWakeupCallTime;
     bool _bShutDownTimeReached;
 
     SimpleLogger _cOrderActionLogger;

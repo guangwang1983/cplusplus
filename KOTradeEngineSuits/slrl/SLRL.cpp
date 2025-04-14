@@ -17,8 +17,9 @@ SLRL::SLRL(const string& sEngineRunTimePath,
            KOEpochTime cTradingEndTime,
            SchedulerBase* pScheduler,
            string sTodayDate,
-           const string& sSimType)
-:SLBase(sEngineRunTimePath, "SLRL", sEngineSlotName, cTradingStartTime, cTradingEndTime, pScheduler, sTodayDate, sSimType),
+           const string& sSimType,
+           KOEpochTime cSlotFirstWakeupCallTime)
+:SLBase(sEngineRunTimePath, "SLRL", sEngineSlotName, cTradingStartTime, cTradingEndTime, pScheduler, sTodayDate, sSimType, cSlotFirstWakeupCallTime),
  _bUpdateStats(true)
 {
 

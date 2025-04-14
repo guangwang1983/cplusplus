@@ -75,6 +75,7 @@ struct QuoteData
     double                          dClose;
     double                          dRefPrice;
 
+    double                          dFXDominatorRateToUSD;
     double                          dRateToDollar;
     string                          sCurrency;
 

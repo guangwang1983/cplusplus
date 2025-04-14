@@ -3,6 +3,7 @@
 
 #include <string>
 #include "KOEpochTime.h"
+#include "QuoteData.h"
 
 using std::string;
 
@@ -15,6 +16,7 @@ struct Trade
 	string 						sProduct;
 	long                        iQty;
 	double                      dPrice;
+    InstrumentType              eInstrumentType;
 };
 
 class compareTradeByTime

@@ -133,6 +133,7 @@ private:
     vector<vector<SimTransaction>> _vPortfolioSimTransactions;
 
     string _sProduct;
+    InstrumentType _eInstrumentType;
     vector<ExecutionPortfolio> _vSimPortfolios;
    
     GridData* _pLoadedData;

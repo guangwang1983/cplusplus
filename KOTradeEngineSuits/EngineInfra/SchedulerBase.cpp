@@ -72,6 +72,8 @@ bool SchedulerBase::preCommonInit()
 
     ErrorHandler::GetInstance()->init(bisLiveTrading(), _cSchedulerCfg.sErrorWarningLogLevel, _cSchedulerCfg.sLogPath);
 
+    _cSlotFirstWakeupCallTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime() + KOEpochTime(30,0);
+
     _pStaticDataHandler.reset(new StaticDataHandler(_cSchedulerCfg.sFXRateFile, _cSchedulerCfg.sProductSpecFile, _cSchedulerCfg.sTickSizeFile, _cSchedulerCfg.sDate));
 
     _pTradeSignalMerger = new TradeSignalMerger(this);
@@ -157,6 +159,17 @@ QuoteData* SchedulerBase::pregisterProduct(string sFullProductName, InstrumentTy
     pNewQuoteDataPtr->dRateToDollar = _pStaticDataHandler->dGetFXRate(sContractDollarFXPair);
     pNewQuoteDataPtr->sCurrency = sCurrency;
     pNewQuoteDataPtr->dTickSize = _pStaticDataHandler->dGetTickSize(sFullProductName);
+
+    if(eInstrumentType == KO_FX)
+    {
+        string sDominatorCurrency = pNewQuoteDataPtr->sProduct.substr(0, 3);
+        string sDominatorCurrencyPair = sDominatorCurrency + "USD";
+        pNewQuoteDataPtr->dFXDominatorRateToUSD = _pStaticDataHandler->dGetFXRate(sDominatorCurrencyPair);
+    }
+    else
+    {
+        pNewQuoteDataPtr->dFXDominatorRateToUSD = 1;
+    }
 
     pNewQuoteDataPtr->dTradingFee = _pStaticDataHandler->dGetTradingFee(pNewQuoteDataPtr->sRoot, pNewQuoteDataPtr->sExchange);
     pNewQuoteDataPtr->dContractSize = _pStaticDataHandler->dGetContractSize(pNewQuoteDataPtr->sRoot, pNewQuoteDataPtr->sExchange);
@@ -625,7 +638,7 @@ void SchedulerBase::registerTradeEngines()
 
                 if(sEngineType.compare("SLSL") == 0)
                 {
-                    pNewTradeEngine.reset(new SLSL(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType));
+                    pNewTradeEngine.reset(new SLSL(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType, _cSlotFirstWakeupCallTime));
                 }
                 else if(sEngineType.compare("DataPrinter") == 0)
                 {
@@ -637,15 +650,15 @@ void SchedulerBase::registerTradeEngines()
                 }
                 else if(sEngineType.compare("SL3L") == 0)
                 {
-                    pNewTradeEngine.reset(new SL3L(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType));
+                    pNewTradeEngine.reset(new SL3L(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType, _cSlotFirstWakeupCallTime));
                 }
                 else if(sEngineType.compare("SLSLUSFigure") == 0)
                 {
-                    pNewTradeEngine.reset(new SLSLUSFigure(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType));
+                    pNewTradeEngine.reset(new SLSLUSFigure(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType, _cSlotFirstWakeupCallTime));
                 }
                 else if(sEngineType.compare("SLRL") == 0)
                 {
-                    pNewTradeEngine.reset(new SLRL(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType));
+                    pNewTradeEngine.reset(new SLRL(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType, _cSlotFirstWakeupCallTime));
                 }
                 else if(sEngineType.compare("SLRD") == 0)
                 {
@@ -716,7 +729,7 @@ void SchedulerBase::registerTradeEngines()
 
                     if(i == 0)
                     {
-                        pNewTradeEngine->_iSlotID = _pTradeSignalMerger->registerTradingSlot(pNewTradeEngine->vContractQuoteDatas[0]->sProduct, sAccount, pNewTradeEngine->vContractQuoteDatas[0]->dContractSize, pNewTradeEngine->vContractQuoteDatas[0]->dRateToDollar, pNewTradeEngine->vContractQuoteDatas[0]->dTradingFee);
+                        pNewTradeEngine->_iSlotID = _pTradeSignalMerger->registerTradingSlot(pNewTradeEngine->vContractQuoteDatas[0]->sProduct, sAccount, pNewTradeEngine->vContractQuoteDatas[0]->dContractSize, pNewTradeEngine->vContractQuoteDatas[0]->dRateToDollar, pNewTradeEngine->vContractQuoteDatas[0]->dTradingFee, pNewTradeEngine->vContractQuoteDatas[0]->dFXDominatorRateToUSD);
                     }
                 }
             }
@@ -841,7 +854,19 @@ void SchedulerBase::updateProductPnL(int iProductIndex)
         dPnLInDollar = dPnLInDollar * 2;
     }
 
-    double dFee = _vProductVolume[iProductIndex] * _vContractQuoteDatas[iProductIndex]->dTradingFee * _vContractQuoteDatas[iProductIndex]->dRateToDollar;
+    double dFee;
+    if(_vContractQuoteDatas[iProductIndex]->eInstrumentType == KO_FX)
+    {
+        string sBaseCurrency = _vContractQuoteDatas[iProductIndex]->sProduct.substr(0, 3);
+        string sBaseCurrencyPair = sBaseCurrency + "USD";
+        double dBaseToDollar = _pStaticDataHandler->dGetFXRate(sBaseCurrencyPair);
+
+        dFee = _vProductVolume[iProductIndex] * dBaseToDollar * _vContractQuoteDatas[iProductIndex]->dTradingFee;
+    }
+    else
+    {
+        dFee = _vProductVolume[iProductIndex] * _vContractQuoteDatas[iProductIndex]->dTradingFee * _vContractQuoteDatas[iProductIndex]->dRateToDollar;
+    }
     double dFinalPnL = dPnLInDollar - dFee;
 
     stringstream cStringStream;
@@ -2581,9 +2606,9 @@ void SchedulerBase::updateSlotSignal(const string& sProduct, int iSlotID, long i
     _pTradeSignalMerger->updateSlotSignal(sProduct, iSlotID, iDesiredPos, iSignalState, bMarketOrder); 
 }
 
-void SchedulerBase::onFill(const string& sProduct, long iFilledQty, double dPrice, bool bIsLiquidator)
+void SchedulerBase::onFill(const string& sProduct, long iFilledQty, double dPrice, bool bIsLiquidator, InstrumentType eInstrumentType)
 {
-    _pTradeSignalMerger->onFill(sProduct, iFilledQty, dPrice, bIsLiquidator);
+    _pTradeSignalMerger->onFill(sProduct, iFilledQty, dPrice, bIsLiquidator, eInstrumentType);
 }
 
 }

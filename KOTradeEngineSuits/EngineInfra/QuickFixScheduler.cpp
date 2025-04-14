@@ -1347,7 +1347,7 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
                 iAdjustedFillQty = iAdjustedFillQty * 2;
             }
 
-            _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iAdjustedFillQty, dFillPrice, bIsLiquidationOrder);
+            _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iAdjustedFillQty, dFillPrice, bIsLiquidationOrder, KO_FUTURE);
             if(iRemainQty == 0)
             {
                 cStringStream << "Order Fully Filled - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << ".";

@@ -45,13 +45,13 @@ public:
 
     void writeEoDResult(const string& sResultPath, const string& sTodayDate);
 
-    int registerTradingSlot(const string& sProduct, const string& sSlotName, double dContractSize, double dDollarRate, double dTradingFee);
+    int registerTradingSlot(const string& sProduct, const string& sSlotName, double dContractSize, double dDollarRate, double dTradingFee, double dDominatorUSDRate);
 
     void setSlotReady(const string& sProduct, long iSlotID);
     void activateSlot(const string& sProduct, long iSlotID);
     void deactivateSlot(const string& sProduct, long iSlotID);
     void updateSlotSignal(const string& sProduct, long iSlotID, long iDesiredPos, int iSignalState, bool bMarketOrder);
-    void onFill(const string& sProduct, int iQty, double dPrice, bool bIsLiquidationFill);
+    void onFill(const string& sProduct, int iQty, double dPrice, bool bIsLiquidationFill, InstrumentType eInstrumentType);
 
     void takePosSnapShot();
 
@@ -69,6 +69,7 @@ private:
     map<string, vector<SlotSignal>> _mSlotSignals;
     map<string, double> _mProductToContractSize;
     map<string, double> _mProductToDollarRate;
+    map<string, double> _mProductFXDominatorUSDRate;
     map<string, double> _mProductToTradingFee;
     map<string, bool> _mProductPrintPos;
    

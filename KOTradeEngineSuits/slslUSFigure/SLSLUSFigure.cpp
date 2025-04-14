@@ -17,8 +17,9 @@ SLSLUSFigure::SLSLUSFigure(const string& sEngineRunTimePath,
            KOEpochTime cTradingEndTime,
            SchedulerBase* pScheduler,
            string sTodayDate,
-           const string& sSimType)
-:SLBase(sEngineRunTimePath, "SLSLUSFigure", sEngineSlotName, cTradingStartTime, cTradingEndTime, pScheduler, sTodayDate, sSimType),
+           const string& sSimType,
+           KOEpochTime cSlotFirstWakeupCallTime)
+:SLBase(sEngineRunTimePath, "SLSLUSFigure", sEngineSlotName, cTradingStartTime, cTradingEndTime, pScheduler, sTodayDate, sSimType, cSlotFirstWakeupCallTime),
  _bSignalInstrumentStaled(false),
  _dLeaderWeight(1),
  _bUpdateStats(true)

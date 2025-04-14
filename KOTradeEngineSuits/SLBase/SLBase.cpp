@@ -23,7 +23,8 @@ SLBase::SLBase(const string& sEngineRunTimePath,
                KOEpochTime cTradingEndTime,
                SchedulerBase* pScheduler,
                const string& sTodayDate,
-               const string& sSimType)
+               const string& sSimType,
+               KOEpochTime cSlotFirstWakeupCallTime)
 :TradeEngineBase(sEngineRunTimePath, sEngineType, sEngineSlotName, cTradingStartTime, cTradingEndTime, pScheduler, sTodayDate, sSimType),
  _bQuoteInstrumentStatled(false),
  _bProductPositiveCorrelation(true),
@@ -35,6 +36,8 @@ SLBase::SLBase(const string& sEngineRunTimePath,
  _bInvalidStatTriggered(false)
 {
     H5Eset_auto2(H5E_DEFAULT, NULL, NULL);
+
+    _cSlotFirstWakeupCallTime = _cSlotFirstWakeupCallTime;
 
     _bWriteLog = false;
     _bWriteSpreadLog = false;
@@ -233,9 +236,9 @@ void SLBase::dayInit()
     }
 
     KOEpochTime cEngineActualStartTime = _cTradingStartTime;
-    if(SystemClock::GetInstance()->cgetCurrentKOEpochTime() > _cTradingStartTime)
+    if(_cSlotFirstWakeupCallTime > _cTradingStartTime)
     {
-        cEngineActualStartTime = KOEpochTime((SystemClock::GetInstance()->cgetCurrentKOEpochTime() + KOEpochTime(30,0)).sec(), 0);
+        cEngineActualStartTime = _cSlotFirstWakeupCallTime;
     }
     KOEpochTime cEngineLiveDuration = _cTradingEndTime - cEngineActualStartTime;
 
@@ -276,6 +279,8 @@ void SLBase::dayRun()
 void SLBase::dayStop()
 {
     TradeEngineBase::dayStop();
+    
+    deactivateSlot(vContractQuoteDatas[0]->sProduct, _iSlotID);
 
     CompType cTradeSignalType(sizeof(TradeSignal));
 
@@ -455,11 +460,11 @@ void SLBase::updateEngineStateOnTimer(KOEpochTime cCallTime)
         if(_bIsQuoteTime == true)
         {
             _cLogger << "Quoting end time reached \n";
+        }
 
-            if(_sSimType == "Config")
-            {
-                deactivateSlot(vContractQuoteDatas[0]->sProduct, _iSlotID);
-            }
+        if(_sSimType == "Config")
+        {
+            deactivateSlot(vContractQuoteDatas[0]->sProduct, _iSlotID);
         }
 
         _bIsQuoteTime = false;

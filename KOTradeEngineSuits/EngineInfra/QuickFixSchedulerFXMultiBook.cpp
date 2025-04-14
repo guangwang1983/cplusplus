@@ -1197,7 +1197,7 @@ void QuickFixSchedulerFXMultiBook::onTimer()
                         pSubProduct->bStalenessErrorTriggered = true;
                         stringstream cStringStream;
                         cStringStream << "FX pricing on " << pSubProduct->sProduct << " stopped";
-                        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                        ErrorHandler::GetInstance()->newWarningMsg("0", "ALL", "ALL", cStringStream.str());
                     }
                 }
             }
@@ -1687,7 +1687,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
                 iAdjustedFillQty = iAdjustedFillQty * 2;
             }
 
-            _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iAdjustedFillQty, dFillPrice, bIsLiquidationOrder);
+            _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iAdjustedFillQty, dFillPrice, bIsLiquidationOrder, KO_FX);
 
             if(iRemainQty == 0)
             {
@@ -2071,7 +2071,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                                 {
                                     stringstream cStringStream;
                                     cStringStream << "FX pricing on " << subQuoteItr->sProduct << " resumed";
-                                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                                    ErrorHandler::GetInstance()->newWarningMsg("0", "ALL", "ALL", cStringStream.str());
 
                                     subQuoteItr->bStalenessErrorTriggered = false;
                                 }
@@ -2357,7 +2357,14 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
                     if(_vLastOrderError[iProductIdx].find(sText) == std::string::npos)
                     {
                         _vLastOrderError[iProductIdx] = cStringStream.str();
-                        ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
+                        if(sText.find("Price Protection") != std::string::npos)
+                        {
+                            ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
+                        }
+                        else
+                        {
+                            ErrorHandler::GetInstance()->newWarningMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
+                        }
                     }
                 }
                 ErrorHandler::GetInstance()->newInfoMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());

@@ -46,7 +46,8 @@ public:
            KOEpochTime cTradingEndTime,
            SchedulerBase* pScheduler,
            const string& sTodayDate,
-           const string& sSimType);
+           const string& sSimType,
+           KOEpochTime cSlotFirstWakeupCallTime);
 
 	virtual ~SLBase();
 	
@@ -95,6 +96,7 @@ protected:
     KOEpochTime _cQuotingPatLiqTime;
     KOEpochTime _cQuotingLimLiqTime;
     KOEpochTime _cQuotingFastLiqTime;
+    KOEpochTime _cSlotFirstWakeupCallTime;
 
 	Instrument*           _pQuoteInstrument;
     SyntheticSpread*      _pProductInstrument;

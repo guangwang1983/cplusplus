@@ -458,7 +458,7 @@ bool KOScheduler::sendToExecutor(const string& sProduct, long iDesiredPos)
     return true;
 }
 
-void KOScheduler::onFill(const string& sProduct, long iFilledQty, double dPrice, bool bIsLiquidator)
+void KOScheduler::onFill(const string& sProduct, long iFilledQty, double dPrice, bool bIsLiquidator, InstrumentType eInstrumentType)
 {
     int iProductIdx = -1;
 
@@ -514,7 +514,7 @@ void KOScheduler::onFill(const string& sProduct, long iFilledQty, double dPrice,
             }
         }
 
-        _pTradeSignalMerger->onFill(sAdjustedFillProduct, iFilledQty, dPrice, bIsLiquidator);
+        _pTradeSignalMerger->onFill(sAdjustedFillProduct, iFilledQty, dPrice, bIsLiquidator, eInstrumentType);
     }
 }
 

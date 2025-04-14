@@ -33,7 +33,7 @@ public:
 
     double dgetFillRatio(const string& sProduct);
 
-    void onFill(const string& sProduct, long iFilledQty, double dPrice, bool bIsLiquidator);
+    void onFill(const string& sProduct, long iFilledQty, double dPrice, bool bIsLiquidator, InstrumentType eInstrumentType);
 
     virtual void updateAllPnL();
 private:

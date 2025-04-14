@@ -1022,7 +1022,14 @@ void ExecutorSim::addNewFill(long iFillTimeStamp, int iPortfolioID, long iFilled
 
     if(_vSimPortfolios[iPortfolioID].pSchedulerBase != NULL)
     {
-        _vSimPortfolios[iPortfolioID].pSchedulerBase->onFill(_sProduct, iFilledQty, iFillPriceInTicks * _dTickSize, _bIsLiquidator);
+        if(_bIOC == true)
+        {
+            _vSimPortfolios[iPortfolioID].pSchedulerBase->onFill(_sProduct, iFilledQty, iFillPriceInTicks * _dTickSize, _bIsLiquidator, KO_FX);
+        }
+        else
+        {
+            _vSimPortfolios[iPortfolioID].pSchedulerBase->onFill(_sProduct, iFilledQty, iFillPriceInTicks * _dTickSize, _bIsLiquidator, KO_FUTURE);
+        }
     }
     _absTotalFillQty = _absTotalFillQty + abs(iFilledQty);
 }

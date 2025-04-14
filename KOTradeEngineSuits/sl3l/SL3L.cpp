@@ -17,8 +17,9 @@ SL3L::SL3L(const string& sEngineRunTimePath,
            KOEpochTime cTradingEndTime,
            SchedulerBase* pScheduler,
            string sTodayDate,
-           const string& sSimType)
-:SLBase(sEngineRunTimePath, "SL3L", sEngineSlotName, cTradingStartTime, cTradingEndTime, pScheduler, sTodayDate, sSimType),
+           const string& sSimType,
+           KOEpochTime cSlotFirstWakeupCallTime)
+:SLBase(sEngineRunTimePath, "SL3L", sEngineSlotName, cTradingStartTime, cTradingEndTime, pScheduler, sTodayDate, sSimType, cSlotFirstWakeupCallTime),
  _bSpreadFrontInstrumentStaled(false),
  _bSpreadBackInstrumentStaled(false),
  _bSpreadPositiveCorrelation(true),
