@@ -37,7 +37,7 @@ SLBase::SLBase(const string& sEngineRunTimePath,
 {
     H5Eset_auto2(H5E_DEFAULT, NULL, NULL);
 
-    _cSlotFirstWakeupCallTime = _cSlotFirstWakeupCallTime;
+    _cSlotFirstWakeupCallTime = cSlotFirstWakeupCallTime;
 
     _bWriteLog = false;
     _bWriteSpreadLog = false;
@@ -176,7 +176,7 @@ void SLBase::loadTriggerSpace()
                 _cQuotingEndTime = _cTradingEndTime - KOEpochTime(1,0);
             }
 
-            _pScheduler->addNewEngineCall(this, EngineEvent::TRADE, _cTradingStartTime);
+            _pScheduler->addNewEngineCall(this, EngineEvent::TRADE, _cQuotingStartTime);
 
             std::getline(cTriggerStream, sElement, ';');
             string sPatTimeOffSet = sElement;            
@@ -236,9 +236,13 @@ void SLBase::dayInit()
     }
 
     KOEpochTime cEngineActualStartTime = _cTradingStartTime;
+
     if(_cSlotFirstWakeupCallTime > _cTradingStartTime)
     {
         cEngineActualStartTime = _cSlotFirstWakeupCallTime;
+        stringstream cStringStream;
+        cStringStream << "Engine late restart. First wake up call time is " << _cSlotFirstWakeupCallTime.igetPrintable();
+        ErrorHandler::GetInstance()->newInfoMsg("0", _sEngineSlotName, "ALL", cStringStream.str());
     }
     KOEpochTime cEngineLiveDuration = _cTradingEndTime - cEngineActualStartTime;
 
@@ -264,6 +268,10 @@ void SLBase::dayTrade()
 
     if(_sSimType == "Config")
     {
+        stringstream cStringStream;
+        cStringStream << "Activate slot in internaliser";
+        ErrorHandler::GetInstance()->newInfoMsg("0", _sEngineSlotName, "ALL", cStringStream.str());
+
         activateSlot(vContractQuoteDatas[0]->sProduct, _iSlotID);
     }
 }
@@ -885,9 +893,9 @@ void SLBase::wakeup(KOEpochTime cCallTime)
         }
     }
 
-    setSlotReady(vContractQuoteDatas[0]->sProduct, _iSlotID);
-
     updateEngineStateOnTimer(cCallTime);
+
+    setSlotReady(vContractQuoteDatas[0]->sProduct, _iSlotID);
 }
 
 void SLBase::figureCall(KOEpochTime cCallTime, KOEpochTime cEventTime, const string& sFigureName, FigureAction::options eFigureAction, double dForecast, double dActual, bool bReleased)
