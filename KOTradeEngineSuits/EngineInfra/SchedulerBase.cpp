@@ -333,12 +333,15 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
                 if(_vContractQuoteDatas[i]->bPriceValid == false)
                 {
                     _vContractQuoteDatas[i]->bPriceValid = true;
-                    _vContractQuoteDatas[i]->bPriceInvalidTriggered = false;
                     _vContractQuoteDatas[i]->cPriceInvalidTime = KOEpochTime();
 
-                    stringstream cStringStream;
-                    cStringStream << "Price recovered from invalid state";
-                    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cStringStream.str());
+                    if(_vContractQuoteDatas[i]->bPriceInvalidTriggered == true)
+                    {
+                        _vContractQuoteDatas[i]->bPriceInvalidTriggered = false;
+                        stringstream cStringStream;
+                        cStringStream << "Price recovered from invalid state";
+                        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cStringStream.str());
+                    }
                 }
             }
         }
