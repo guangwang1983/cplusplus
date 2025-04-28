@@ -920,7 +920,7 @@ void SLSL::loadOvernightStats()
                     std::getline(cDailyStatStream, sElement, ',');
                     try
                     {
-                        pDailyStat->dLastQuoteMid = stod(sElement);
+                        pDailyStat->dLastQuoteMid = atof(sElement.c_str());
                         bStatValid = bStatValid && true;
                     }
                     catch(exception e)
@@ -931,7 +931,7 @@ void SLSL::loadOvernightStats()
                     std::getline(cDailyStatStream, sElement, ',');
                     try
                     {
-                        pDailyStat->dLastSignalMid = stod(sElement);
+                        pDailyStat->dLastSignalMid = atof(sElement.c_str());
                         bStatValid = bStatValid && true;
                     }
                     catch(exception e)

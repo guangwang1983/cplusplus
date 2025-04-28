@@ -830,14 +830,14 @@ void SLRL::loadOvernightStats()
                     double dTargetMid = 0;
                     string sTargetMid;
                     bStatValid = bStatValid && std::getline(cDailyStatStream, sTargetMid, ',');
-                    dTargetMid = stod(sTargetMid);
+                    dTargetMid = atof(sTargetMid.c_str());
 
                     vector<double> vDailyLegMid;
                     for(unsigned int i = 0; i < _vInstruments.size(); i++)
                     {
                         string sLegMid;
                         bStatValid = bStatValid && std::getline(cDailyStatStream, sLegMid, ',');
-                        vDailyLegMid.push_back(stod(sLegMid));
+                        vDailyLegMid.push_back(atof(sLegMid.c_str()));
                     }                    
 
                     if(bStatValid)

@@ -1370,7 +1370,7 @@ void SL3L::loadOvernightStats()
                     std::getline(cDailyStatStream, sElement, ',');
                     try
                     {
-                        pDailyStat->dLastQuoteMid = stod(sElement);
+                        pDailyStat->dLastQuoteMid = atof(sElement.c_str());
                         bStatValid = bStatValid && true;
                     }
                     catch(exception e)
@@ -1381,7 +1381,7 @@ void SL3L::loadOvernightStats()
                     std::getline(cDailyStatStream, sElement, ',');
                     try
                     {
-                        pDailyStat->dLastSpreadFrontMid = stod(sElement);
+                        pDailyStat->dLastSpreadFrontMid = atof(sElement.c_str());
                         bStatValid = bStatValid && true;
                     }
                     catch(exception e)
@@ -1392,7 +1392,7 @@ void SL3L::loadOvernightStats()
                     std::getline(cDailyStatStream, sElement, ',');
                     try
                     {
-                        pDailyStat->dLastSpreadBackMid = stod(sElement.c_str());
+                        pDailyStat->dLastSpreadBackMid = atof(sElement.c_str());
                         bStatValid = bStatValid && true;
                     }
                     catch(exception e)
