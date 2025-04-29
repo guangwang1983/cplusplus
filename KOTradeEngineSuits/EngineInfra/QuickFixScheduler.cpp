@@ -924,29 +924,6 @@ void QuickFixScheduler::onTimer()
     {
         checkProductsForPriceSubscription();
     }
-
-    if(_iNumTimerCallsReceived == 10)
-    {
-        if(_sOrderSenderCompID != "")
-        {
-            if(_bIsOrderSessionLoggedOn == false)
-            {
-                stringstream cStringStream;
-                cStringStream << "Order session " << _sOrderSenderCompID << " not logged on 10 seconds after engine start";
-                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-            }
-        }
-
-        for(int i = 0; i < _vMDSessions.size(); i++)
-        {
-            if(_vMDSessions[i].bIsLoggedOn == false)
-            {
-                stringstream cStringStream;
-                cStringStream << "Market data session " << _vMDSessions[i].sSenderCompID << " not logged on 10 seconds after engine start";
-                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-            }
-        } 
-    }
 }
 
 void QuickFixScheduler::onCreate(const SessionID& cSessionID)
@@ -1011,16 +988,16 @@ void QuickFixScheduler::onLogout(const SessionID& cSessionID)
             {
                 if(_vMDSessions[i].bIsLoggedOn == true)
                 {
-                    _vMDSessions[i].bIsLoggedOn = false;
                     updateQuoteDataSubscribed();
                     stringstream cStringStream;
                     cStringStream << "Disconnected from market data fix session " << sSenderCompID;
                     ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
                 }
 
+                _vMDSessions[i].bIsLoggedOn = false;
                 stringstream cStringStream;
-                cStringStream << "Disconnected from market data fix session " << sSenderCompID;
-                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+                cStringStream << "Failed to log on to market data fix session " << sSenderCompID;
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
                 break;
             }
         }
@@ -1036,8 +1013,8 @@ void QuickFixScheduler::onLogout(const SessionID& cSessionID)
 
         _bIsOrderSessionLoggedOn = false;
         stringstream cStringStream;
-        cStringStream << "Disconnected from order fix session " << _sOrderSenderCompID;
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+        cStringStream << "Failed to log on to order fix session " << _sOrderSenderCompID;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
 }
 

@@ -1161,29 +1161,6 @@ void QuickFixSchedulerFXMultiBook::onTimer()
         checkProductsForPriceSubscription();
     }
 
-    if(_iNumTimerCallsReceived == 10)
-    {
-        if(_sOrderSenderCompID != "")
-        {
-            if(_bIsOrderSessionLoggedOn == false)
-            {
-                stringstream cStringStream;
-                cStringStream << "Order session " << _sOrderSenderCompID << " not logged on 10 seconds after engine start";
-                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-            }
-        }
-
-        for(int i = 0; i < _vMDSessions.size(); i++)
-        {
-            if(_vMDSessions[i].bIsLoggedOn == false)
-            {
-                stringstream cStringStream;
-                cStringStream << "Market data session " << _vMDSessions[i].sSenderCompID << " not logged on 10 seconds after engine start";
-                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-            }
-        }
-    }
-
     for(map<unsigned int, vector<QuoteData>>::iterator itr = _vProductMultiBooks.begin(); itr != _vProductMultiBooks.end(); itr++)
     {
         for(vector<QuoteData>::iterator pSubProduct = itr->second.begin(); pSubProduct != itr->second.end(); pSubProduct++)
@@ -1272,7 +1249,6 @@ void QuickFixSchedulerFXMultiBook::onLogout(const SessionID& cSessionID)
             {
                 if(_vMDSessions[i].bIsLoggedOn == true)
                 {
-                    _vMDSessions[i].bIsLoggedOn = false;
                     updateQuoteDataSubscribed();
 
                     stringstream cStringStream;
@@ -1280,9 +1256,10 @@ void QuickFixSchedulerFXMultiBook::onLogout(const SessionID& cSessionID)
                     ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
                 }
 
+                _vMDSessions[i].bIsLoggedOn = false;
                 stringstream cStringStream;
-                cStringStream << "Disconnected from market data fix session " << sSenderCompID;
-                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+                cStringStream << "Failed to log on to market data fix session " << sSenderCompID;
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
                 break;
             }
         }
@@ -1298,8 +1275,8 @@ void QuickFixSchedulerFXMultiBook::onLogout(const SessionID& cSessionID)
 
         _bIsOrderSessionLoggedOn = false;
         stringstream cStringStream;
-        cStringStream << "Disconnected from order fix session " << _sOrderSenderCompID;
-        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+        cStringStream << "Failed to log on to order fix session " << _sOrderSenderCompID;
+        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
 }
 
@@ -1868,7 +1845,14 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
                     if(_vLastOrderError[iProductIdx].find(sRejectReason) == std::string::npos)
                     {
                         _vLastOrderError[iProductIdx] = cStringStream.str();
-                        ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
+                        if(sRejectReason.find("Price Protection") != std::string::npos || sRejectReason.find("Market move") != std::string::npos || sRejectReason.find("last look") != std::string::npos) 
+                        {
+                            ErrorHandler::GetInstance()->newWarningMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
+                        }
+                        else
+                        {
+                            ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
+                        }
                     }
                 }
                 ErrorHandler::GetInstance()->newInfoMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
@@ -2357,13 +2341,13 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
                     if(_vLastOrderError[iProductIdx].find(sText) == std::string::npos)
                     {
                         _vLastOrderError[iProductIdx] = cStringStream.str();
-                        if(sText.find("Price Protection") == std::string::npos)
+                        if(sText.find("Price Protection") != std::string::npos || sText.find("Market move") != std::string::npos || sText.find("last look") != std::string::npos)
                         {
-                            ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
+                            ErrorHandler::GetInstance()->newWarningMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
                         }
                         else
                         {
-                            ErrorHandler::GetInstance()->newWarningMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
+                            ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
                         }
                     }
                 }
