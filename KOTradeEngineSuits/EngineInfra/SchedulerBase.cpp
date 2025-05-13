@@ -177,7 +177,7 @@ QuoteData* SchedulerBase::pregisterProduct(string sFullProductName, InstrumentTy
 
     if(_pStaticDataHandler->sGetProductTyep(pNewQuoteDataPtr->sRoot, pNewQuoteDataPtr->sExchange) == "FUTURE")
     {
-        pNewQuoteDataPtr->iMaxSpreadWidth = 5;
+        pNewQuoteDataPtr->iMaxSpreadWidth = 20;
     }
     else if(_pStaticDataHandler->sGetProductTyep(pNewQuoteDataPtr->sRoot, pNewQuoteDataPtr->sExchange) == "FX")
     {
@@ -873,7 +873,7 @@ void SchedulerBase::updateProductPnL(int iProductIndex)
     double dFinalPnL = dPnLInDollar - dFee;
 
     stringstream cStringStream;
-    cStringStream << "PNL: " << dFinalPnL << " Volume: " << _vProductVolume[iProductIndex] << " Position: " << iProductTotalPos;
+    cStringStream << "PNL: " << dFinalPnL << " Volume: " << _vProductVolume[iProductIndex] << " Position: " << iProductTotalPos << " Status: " << _vProductTradingStatus[iProductIndex];
     ErrorHandler::GetInstance()->newInfoMsg("HB", "ALL", _vContractQuoteDatas[iProductIndex]->sProduct, cStringStream.str());
 
     if(_vProductLiquidating[iProductIndex] == false)
@@ -1806,6 +1806,11 @@ void SchedulerBase::limLiqAllTraders(int aSignal)
             _pInstance->_vProductLiquidating[i] = true;
         }
 
+        for(unsigned int i = 0; i < _pInstance->_vProductTradingStatus.size(); i++)
+        {
+            _pInstance->_vProductTradingStatus[i] = "LIQUIDATED";
+        }
+
         stringstream cStringStream;
         cStringStream << "Received signal to set engine to limit liquidation state.";
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
@@ -1830,6 +1835,11 @@ void SchedulerBase::resumeAllTraders(int aSignal)
         cStringStream << "Received signal to set engine to resume state.";
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
 
+        for(unsigned int i = 0; i < _pInstance->_vProductTradingStatus.size(); i++)
+        {
+            _pInstance->_vProductTradingStatus[i] = "TRADING";
+        }
+
         for(vector<TradeEngineBasePtr>::iterator itr = _pInstance->_vTradeEngines.begin(); itr != _pInstance->_vTradeEngines.end(); itr++)
         {
             (*itr)->manualResumeTrading();
@@ -1850,6 +1860,11 @@ void SchedulerBase::patientLiqAllTraders(int aSignal)
         cStringStream << "Received signal to set engine to patient liquidation state.";
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
 
+        for(unsigned int i = 0; i < _pInstance->_vProductTradingStatus.size(); i++)
+        {
+            _pInstance->_vProductTradingStatus[i] = "PATIENT";
+        }
+
         for(vector<TradeEngineBasePtr>::iterator itr = _pInstance->_vTradeEngines.begin(); itr != _pInstance->_vTradeEngines.end(); itr++)
         {
            (*itr)->manualPatientLiquidation();
@@ -1864,6 +1879,11 @@ void SchedulerBase::fastLiqAllTraders(int aSignal)
         stringstream cStringStream;
         cStringStream << "Received signal to set engine to fast liquidation state.";
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+
+        for(unsigned int i = 0; i < _pInstance->_vProductTradingStatus.size(); i++)
+        {
+            _pInstance->_vProductTradingStatus[i] = "LIQUIDATED";
+        }
 
         for(vector<TradeEngineBasePtr>::iterator itr = _pInstance->_vTradeEngines.begin(); itr != _pInstance->_vTradeEngines.end(); itr++)
         {
@@ -1884,6 +1904,11 @@ void SchedulerBase::haltAllTraders(int aSignal)
         stringstream cStringStream;
         cStringStream << "Received signal to set engine to halt state.";
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", "ALL", cStringStream.str());
+
+        for(unsigned int i = 0; i < _pInstance->_vProductTradingStatus.size(); i++)
+        {
+            _pInstance->_vProductTradingStatus[i] = "HALT";
+        }
 
         for(vector<TradeEngineBasePtr>::iterator itr = _pInstance->_vTradeEngines.begin(); itr != _pInstance->_vTradeEngines.end(); itr++)
         {
@@ -2100,6 +2125,15 @@ void SchedulerBase::liquidatProduct(LiquidationType eLiquidationType)
                 if(_vContractQuoteDatas[i]->sRoot == sProductToBeLiquidated)
                 {
                     _vProductLiquidating[i] = true;
+
+                    if(eLiquidationType == LIMIT_LIQ || eLiquidationType == FAST_LIQ)
+                    {
+                        _vProductTradingStatus[i]= "LIQUIDATED";
+                    }
+                    else if(eLiquidationType == PATIENT_LIQ)
+                    {
+                        _vProductTradingStatus[i]= "PATIENT";
+                    }
                 }
             }
 

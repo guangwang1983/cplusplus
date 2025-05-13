@@ -96,6 +96,7 @@ void QuickFixScheduler::init()
 
         _vProductConsideration.push_back(0.0);
         _vProductVolume.push_back(0);
+        _vProductTradingStatus.push_back("TRADING");
 
         _vProductStopLoss.push_back(_cSchedulerCfg.vProductStopLoss[i]);
         _vProductAboveSLInSec.push_back(0);
