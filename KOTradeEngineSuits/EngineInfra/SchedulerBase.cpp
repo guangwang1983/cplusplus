@@ -89,6 +89,15 @@ bool SchedulerBase::preCommonInit()
     _cShutDownTime = SystemClock::GetInstance()->cCreateKOEpochTimeFromCET(_cSchedulerCfg.sDate, sHour, sMinute, sSecond);
     _bShutDownTimeReached = false;
 
+    _cKiwiAsianOpenTime = SystemClock::GetInstance()->cCreateKOEpochTimeFromCET(_cSchedulerCfg.sDate, "00", "30", "00");
+    _cKiwiAsianCloseTime = SystemClock::GetInstance()->cCreateKOEpochTimeFromCET(_cSchedulerCfg.sDate, "04", "30", "00");
+
+    _cAussieAsianOpenTime = SystemClock::GetInstance()->cCreateKOEpochTimeFromCET(_cSchedulerCfg.sDate, "00", "30", "00");
+    _cAussieAsianCloseTime = SystemClock::GetInstance()->cCreateKOEpochTimeFromCET(_cSchedulerCfg.sDate, "06", "30", "00");
+
+    _cAussieEUOpenTime = SystemClock::GetInstance()->cCreateKOEpochTimeFromCET(_cSchedulerCfg.sDate, "09", "10", "00");
+    _cAussieEUCloseTime = SystemClock::GetInstance()->cCreateKOEpochTimeFromCET(_cSchedulerCfg.sDate, "21", "30", "00");
+
     if(!bisLiveTrading() && _cSchedulerCfg.sErrorWarningLogLevel.compare("INFO") == 0)
     {
         _cOrderActionLogger.openFile(_cSchedulerCfg.sLogPath + "/OrderActionLog.out", true, false);
@@ -288,6 +297,33 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
                 mLastExchangeUpdateTimes[_vContractQuoteDatas[i]->sExchange] = _vContractQuoteDatas[i]->cLastUpdateTime.sec();
             }
 
+            if(_vContractQuoteDatas[i]->sRoot == "BB")
+            {
+                if(cCallTime > _cKiwiAsianOpenTime &&
+                   cCallTime < _cKiwiAsianCloseTime)
+                {
+                    _vContractQuoteDatas[i]->bCheckStaleness = true;
+                }
+                else
+                {
+                    _vContractQuoteDatas[i]->bCheckStaleness = false;
+                }
+            }
+            else if(_vContractQuoteDatas[i]->sRoot == "IR")
+            {
+                if((cCallTime > _cAussieAsianOpenTime &&
+                   cCallTime < _cAussieAsianCloseTime) ||
+                   (cCallTime > _cAussieEUOpenTime &&
+                   cCallTime < _cAussieEUCloseTime))
+                {
+                    _vContractQuoteDatas[i]->bCheckStaleness = true;
+                }
+                else
+                {
+                    _vContractQuoteDatas[i]->bCheckStaleness = false;
+                }
+            }
+    
             if(_vContractQuoteDatas[i]->bCheckStaleness == true)
             {
                 if(_vContractQuoteDatas[i]->bStalenessErrorTriggered == false)

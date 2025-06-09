@@ -280,6 +280,15 @@ protected:
     vector<int> _vProductLiquidating;
 
     vector<string> _vForbiddenFXLPs;
+
+    KOEpochTime _cKiwiAsianOpenTime;
+    KOEpochTime _cKiwiAsianCloseTime;
+
+    KOEpochTime _cAussieAsianOpenTime;
+    KOEpochTime _cAussieAsianCloseTime;
+
+    KOEpochTime _cAussieEUOpenTime;
+    KOEpochTime _cAussieEUCloseTime;
 };
 
 
