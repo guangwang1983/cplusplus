@@ -216,6 +216,7 @@ QuoteData* SchedulerBase::pregisterProduct(string sFullProductName, InstrumentTy
     pNewQuoteDataPtr->cMarketCloseTime = _pStaticDataHandler->cGetMarketCloseTime(pNewQuoteDataPtr->sRoot, pNewQuoteDataPtr->sExchange);
 
     pNewQuoteDataPtr->bCheckStaleness = true;
+    pNewQuoteDataPtr->bIsMarketOpen = true;
 
     _vContractQuoteDatas.push_back(pNewQuoteDataPtr);
     _cProductEngineMap.push_back(vector<TradeEngineBasePtr>());
@@ -302,11 +303,11 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
                 if(cCallTime > _cKiwiAsianOpenTime &&
                    cCallTime < _cKiwiAsianCloseTime)
                 {
-                    _vContractQuoteDatas[i]->bCheckStaleness = true;
+                    _vContractQuoteDatas[i]->bIsMarketOpen = true;
                 }
                 else
                 {
-                    _vContractQuoteDatas[i]->bCheckStaleness = false;
+                    _vContractQuoteDatas[i]->bIsMarketOpen = false;
                 }
             }
             else if(_vContractQuoteDatas[i]->sRoot == "IR")
@@ -316,15 +317,15 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
                    (cCallTime > _cAussieEUOpenTime &&
                    cCallTime < _cAussieEUCloseTime))
                 {
-                    _vContractQuoteDatas[i]->bCheckStaleness = true;
+                    _vContractQuoteDatas[i]->bIsMarketOpen = true;
                 }
                 else
                 {
-                    _vContractQuoteDatas[i]->bCheckStaleness = false;
+                    _vContractQuoteDatas[i]->bIsMarketOpen = false;
                 }
             }
     
-            if(_vContractQuoteDatas[i]->bCheckStaleness == true)
+            if(_vContractQuoteDatas[i]->bCheckStaleness == true && _vContractQuoteDatas[i]->bIsMarketOpen == true)
             {
                 if(_vContractQuoteDatas[i]->bStalenessErrorTriggered == false)
                 {
@@ -341,7 +342,7 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
 
             if(_vContractQuoteDatas[i]->dBestAsk - _vContractQuoteDatas[i]->dBestBid < 0.00000001 && _vContractQuoteDatas[i]->iBidSize != 0 && _vContractQuoteDatas[i]->iAskSize != 0)
             {
-                if(_vContractQuoteDatas[i]->bCheckStaleness == true)
+                if(_vContractQuoteDatas[i]->bCheckStaleness == true && _vContractQuoteDatas[i]->bIsMarketOpen == true)
                 {
                     if(_vContractQuoteDatas[i]->bPriceValid == true)
                     {

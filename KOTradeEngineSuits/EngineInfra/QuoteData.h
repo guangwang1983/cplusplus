@@ -107,6 +107,7 @@ struct QuoteData
     bool                            bIgnoreVenue;
 
     bool                            bCheckStaleness;
+    bool                            bIsMarketOpen;
 };
 
 }
