@@ -1848,10 +1848,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
                         _vLastOrderError[iProductIdx] = cStringStream.str();
                         if(sRejectReason.find("Price Protection") != std::string::npos || sRejectReason.find("Market move") != std::string::npos || sRejectReason.find("last look") != std::string::npos || sRejectReason.find("outside Tolerance") != std::string::npos) 
                         {
-                            ErrorHandler::GetInstance()->newWarningMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
-                        }
-                        else
-                        {
                             ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
                         }
                     }
@@ -2343,10 +2339,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
                     {
                         _vLastOrderError[iProductIdx] = cStringStream.str();
                         if(sText.find("Price Protection") != std::string::npos || sText.find("Market move") != std::string::npos || sText.find("last look") != std::string::npos || sText.find("outside Tolerance") != std::string::npos)
-                        {
-                            ErrorHandler::GetInstance()->newWarningMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
-                        }
-                        else
                         {
                             ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
                         }
