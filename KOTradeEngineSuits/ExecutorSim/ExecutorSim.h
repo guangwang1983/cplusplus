@@ -109,7 +109,7 @@ public:
         FLAT_ALL_SHORT  //5
     };
 
-    ExecutorSim(const string& sProduct, long iSubmitLatency, long iAmendLatency, double dTickSize, const string& sDataFile, long iExpoLimit, const string& sDate, const string& sLogPath, bool bWriteLog, bool bIsLiquidator, bool bLogMarketData, bool bIOC, int iIOCSpreadWidthLimit);
+    ExecutorSim(const string& sProduct, long iSubmitLatency, long iAmendLatency, double dTickSize, const string& sDataFile, long iExpoLimit, const string& sDate, const string& sLogPath, bool bWriteLog, bool bIsLiquidator, bool bLogMarketData, bool bIOC, int iIOCSpreadWidthLimit, int iArtificialSpread);
     ~ExecutorSim();
 
     const string& sgetProduct();
@@ -173,6 +173,8 @@ private:
 
     long _iSecondMsgLimit;
 
+    int _iArtificialSpread;
+
     bool bloadHDF5(long iDataSetIdx);
     void findLastPrint(long iDataIdx);
     bool bloadDataForSignal(long iSignalTimeStamp);
@@ -212,6 +214,8 @@ private:
 //    void updateOrderPrice(ExecutorSimOrder& cExecutorSimOrder, const GridData& cNewDataPoint, long iSubmitTime);
 
     void addNewFill(long iFillTimeStamp, int iPortfolioID, long iFilledQty, long iFillPriceInTicks);
+
+    void adjustArtificialSpread(GridData* pDataPoint);
 };
 
 }

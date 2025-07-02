@@ -192,7 +192,6 @@ int main(int argc, char *argv[])
     vector<long> vMinLatencies;
     vector<long> v5MinLatencies;
 
-    long iArtificialSpread = 0;
     bool bCheckData;
 
     bool bTickSizeAdjusted = false;
@@ -213,7 +212,6 @@ int main(int argc, char *argv[])
     _cAllOptions.add_options()("MinLatency", boost::program_options::value<vector<long>>(&vMinLatencies), "Minute Grid Latency");
     _cAllOptions.add_options()("5MinLatency", boost::program_options::value<vector<long>>(&v5MinLatencies), "5Minute Grid Latency");
 
-    _cAllOptions.add_options()("ArtificialSpread", boost::program_options::value<long>(&iArtificialSpread), "Artificial Spread");
     _cAllOptions.add_options()("CheckData", boost::program_options::value<bool>(&bCheckData), "Check Data");
 
     if(argc == 1)
@@ -1012,7 +1010,6 @@ int main(int argc, char *argv[])
                                                 {
                                                     if(abs(cNewTickDataPoint.dWeightedMidInTicks / cPrevTickDataPoint.dWeightedMidInTicks) > 1.10 or abs(cNewTickDataPoint.dWeightedMidInTicks / cPrevTickDataPoint.dWeightedMidInTicks) < 0.9)
                                                     {
-    cerr << cNewTickDataPoint.dWeightedMidInTicks << "/" << cPrevTickDataPoint.dWeightedMidInTicks << "=" << (cNewTickDataPoint.dWeightedMidInTicks / cPrevTickDataPoint.dWeightedMidInTicks) << "\n";
                                                         if(bCheckData)
                                                         {
                                                             cerr << "Error: Mid price moved more than 10 percent in " << sInputFileName << " Time: " << iCurrentTime << "\n";
@@ -1048,12 +1045,6 @@ int main(int argc, char *argv[])
                                 }
                                 else if(sLineAction == "Quote")
                                 {
-                                    if(iArtificialSpread != 0)
-                                    {
-                                        sLineBidSize = "1000000";
-                                        sLineAskSize = "1000000";
-                                    }
-
                                     if(sLineBid != "" || sLineBidSize != "" || sLineAsk != "" || sLineAskSize != "")
                                     {
                                         if(sLineBid != "")
@@ -1229,57 +1220,6 @@ int main(int argc, char *argv[])
 
 		if(bWholeFileParsed == true && vGridData.size() != 0)	
 		{
-            if(iArtificialSpread != 0)
-            {
-                double dAvgSpread = dSpreadSum / (double)iNumSpreadSample;
-                long iStdSpread = sqrt(dSqrdSpreadSum / (double)(iNumSpreadSample)- (dAvgSpread * dAvgSpread));
-                long iSquashThresh = dAvgSpread + iStdSpread * 3;
-
-                cerr << "dAvgSpread " << dAvgSpread << "\n";
-                cerr << "iStdSpread " << iStdSpread << "\n";
-                cerr << "iSquashThresh " << iSquashThresh << "\n";
-
-                bool bAdjustBidFirst = true;
-                bool bAdjustBid = true;
-                for(vector<GridData>::iterator itr = vGridData.begin(); itr != vGridData.end(); itr++)
-                {
-                    long iSpread = (*itr).iAskInTicks - (*itr).iBidInTicks;
-                    //squash all ticks to target width for fx
-                    if(true)
-                    {
-                        long iTicksToAllocate = iSpread - iArtificialSpread;
-                        bAdjustBid = bAdjustBidFirst;
-                        while(iTicksToAllocate > 0)
-                        {
-                            if(bAdjustBid)
-                            {
-                                (*itr).iBidInTicks = (*itr).iBidInTicks + 1;
-                                iTicksToAllocate = iTicksToAllocate - 1;
-                                bAdjustBid = false;
-                            }
-                            else
-                            {
-                                (*itr).iAskInTicks = (*itr).iAskInTicks - 1;
-                                iTicksToAllocate = iTicksToAllocate - 1;
-                                bAdjustBid = true;
-                            }
-                        }                                                        
-
-                        if(bAdjustBidFirst == true)
-                        {
-                            bAdjustBidFirst = false;
-                        }
-                        else
-                        {
-                            bAdjustBidFirst = true;
-                        }
-                    
-                        (*itr).dBid = (*itr).iBidInTicks * dTickSize;
-                        (*itr).dAsk = (*itr).iAskInTicks * dTickSize;
-                    }
-                }
-            }
-
 			H5File* pH5TickFile = new H5File(sOutputTickFileName, H5F_ACC_TRUNC);
 
             CompType cGridDataType(sizeof(GridData));

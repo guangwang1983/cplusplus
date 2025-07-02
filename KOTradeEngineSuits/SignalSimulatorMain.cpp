@@ -89,6 +89,7 @@ int main(int argc, char *argv[])
     bool bWriteLog;
     bool bLogMarketData;
     int iIOCSpreadWidthLimit;
+    int iArticifialSpread;
     
     boost::program_options::options_description _cAllOptions;
     _cAllOptions.add_options()("SimConfigPrefix", boost::program_options::value<string>(&sSimConfigPrefix), "Prefix of configs to be simulated");
@@ -105,6 +106,7 @@ int main(int argc, char *argv[])
     _cAllOptions.add_options()("WriteLog", boost::program_options::value<bool>(&bWriteLog), "Write Log");
     _cAllOptions.add_options()("LogMarketData", boost::program_options::value<bool>(&bLogMarketData), "Log Market Data");
     _cAllOptions.add_options()("IOCSpreadWidthLimit", boost::program_options::value<int>(&iIOCSpreadWidthLimit), "IOC Spread Width Limit");
+    _cAllOptions.add_options()("ArticifialSpread", boost::program_options::value<int>(&iArticifialSpread), "IOC Spread Width Limit");
 
     if(argc == 1)
     {
@@ -192,7 +194,7 @@ int main(int argc, char *argv[])
             bIOC = true;
         }
 
-        ExecutorSim cExecutorSim(sDailyTradingContract, iSubmitLatency, iAmendLatency, dDailyTickSize, sDataFile, 999999999, sDate, sLogPath, bWriteLog, false, bLogMarketData, bIOC, iIOCSpreadWidthLimit);
+        ExecutorSim cExecutorSim(sDailyTradingContract, iSubmitLatency, iAmendLatency, dDailyTickSize, sDataFile, 999999999, sDate, sLogPath, bWriteLog, false, bLogMarketData, bIOC, iIOCSpreadWidthLimit, iArticifialSpread);
         cExecutorSim.setTheoreticalSim(true);
 
         // load signals

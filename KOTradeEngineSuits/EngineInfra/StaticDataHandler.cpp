@@ -11,7 +11,7 @@ using namespace std;
 namespace KO
 {
 
-StaticDataHandler::StaticDataHandler(string sFXRateFileName, string sProductSpecFileName, string sTickSizeFileName, string sTodayDate)
+StaticDataHandler::StaticDataHandler(string sFXRateFileName, string sProductSpecFileName, string sTickSizeFileName, string sFXArtificialSpreadFile, string sTodayDate)
 :_sTodayDate(sTodayDate)
 {
     // add default USDUSD FX pair
@@ -233,6 +233,46 @@ StaticDataHandler::StaticDataHandler(string sFXRateFileName, string sProductSpec
         cStringStream << "Cannot load product spec file " << sProductSpecFileName << "\n";
         ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
     }
+
+    // load fx spread file
+    ifstream ifsFXArtificialSpreadFile (sFXArtificialSpreadFile.c_str());
+    cerr << sFXArtificialSpreadFile << "\n";
+    if(ifsFXArtificialSpreadFile.is_open())
+    {
+cerr << "file opened \n";
+        while(!ifsFXArtificialSpreadFile.eof())
+        {
+            char sNewLine[2048];
+            ifsFXArtificialSpreadFile.getline(sNewLine, sizeof(sNewLine));
+
+            if(sNewLine[0] != '#' && strlen(sNewLine) != 0)
+            {
+                std::istringstream cFXSpreadLineStream(sNewLine);
+                string sElement;
+
+                string sRootSymbol;
+                int iSpreadWidth;
+
+                int index = 0;
+                while (std::getline(cFXSpreadLineStream, sElement, ','))
+                {
+                    if(index == 0)
+                    {
+                        sRootSymbol = sElement;
+                    }
+                    else if(index == 1)
+                    {
+                        iSpreadWidth = atoi(sElement.c_str());
+                    }
+
+                    index = index + 1;
+                }
+
+                _mFXArtificialSpread.insert(std::pair<string, int>(sRootSymbol, iSpreadWidth));
+            }
+        }
+    }
+
 }
 
 StaticDataHandler::~StaticDataHandler()
@@ -416,6 +456,19 @@ double StaticDataHandler::dGetFXRate(const string& sFXPair)
 {
     map<string, double>::iterator itr = _mFXRate.find(sFXPair);
     if(itr != _mFXRate.end())
+    {
+        return itr->second;
+    }
+    else
+    {   
+        return 0;
+    }
+}
+
+int StaticDataHandler::iGetFXArticifialSpread(const string& sRootSymbol)
+{
+    map<string, int>::iterator itr = _mFXArtificialSpread.find(sRootSymbol);
+    if(itr != _mFXArtificialSpread.end())
     {
         return itr->second;
     }

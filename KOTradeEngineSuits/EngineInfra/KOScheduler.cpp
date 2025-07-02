@@ -45,7 +45,7 @@ bool KOScheduler::init()
         QuoteData* pNewQuoteDataPtr = pregisterProduct(_cSchedulerCfg.vProducts[i], eInstrumentType);
         pNewQuoteDataPtr->iCID = i;
         pNewQuoteDataPtr->iProductExpoLimit = _cSchedulerCfg.vProductExpoLimit[i];
-        _pHistoricDataRegister->psubscribeNewProduct(pNewQuoteDataPtr);
+        _pHistoricDataRegister->psubscribeNewProduct(pNewQuoteDataPtr, _pStaticDataHandler->iGetFXArticifialSpread(pNewQuoteDataPtr->sRoot));
 
         _vFirstOrderTime.push_back(KOEpochTime());
         _vProductLiquidationPos.push_back(0);
@@ -120,12 +120,12 @@ void KOScheduler::initExecutorSims()
 
     for(unsigned int i = 0; i < vProducts.size(); i ++)
     {
-        ExecutorSim* pNewExecutorSim = new ExecutorSim(vProducts[i], vSubmitLatencies[i],  vAmendLatencies[i], vTickSizes[i], vDataFiles[i], 1000000, _cSchedulerCfg.sDate, sLogPath, bWriteLog, false, bLogMarketData, bIOCs[i], iIOCSpreadWidthLimit[i]);
+        ExecutorSim* pNewExecutorSim = new ExecutorSim(vProducts[i], vSubmitLatencies[i],  vAmendLatencies[i], vTickSizes[i], vDataFiles[i], 1000000, _cSchedulerCfg.sDate, sLogPath, bWriteLog, false, bLogMarketData, bIOCs[i], iIOCSpreadWidthLimit[i], _pStaticDataHandler->iGetFXArticifialSpread(vProducts[i]));
 
         _iPortfolioID = pNewExecutorSim->iaddPortfolio(NULL, NULL, this);
         _vSimExecutors.push_back(pNewExecutorSim);
 
-        ExecutorSim* pNewLiqExecutorSim = new ExecutorSim(vProducts[i], vSubmitLatencies[i], vAmendLatencies[i], vTickSizes[i], vDataFiles[i], 1000000, _cSchedulerCfg.sDate, sLogPath, bWriteLog, true, bLogMarketData, bIOCs[i], iIOCSpreadWidthLimit[i]);
+        ExecutorSim* pNewLiqExecutorSim = new ExecutorSim(vProducts[i], vSubmitLatencies[i], vAmendLatencies[i], vTickSizes[i], vDataFiles[i], 1000000, _cSchedulerCfg.sDate, sLogPath, bWriteLog, true, bLogMarketData, bIOCs[i], iIOCSpreadWidthLimit[i], _pStaticDataHandler->iGetFXArticifialSpread(vProducts[i]));
 
         _iPortfolioID = pNewLiqExecutorSim->iaddPortfolio(NULL, NULL, this);
         _vLiqExecutors.push_back(pNewLiqExecutorSim);

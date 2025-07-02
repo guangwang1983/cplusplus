@@ -12,7 +12,7 @@ using namespace std;
 namespace KO
 {
 
-ExecutorSim::ExecutorSim(const string& sProduct, long iSubmitLatency, long iAmendLatency, double dTickSize, const string& sDataFile, long iExpoLimit, const string& sDate, const string& sLogPath, bool bWriteLog, bool bIsLiquidator, bool bLogMarketData, bool bIOC, int iIOCSpreadWidthLimit)
+ExecutorSim::ExecutorSim(const string& sProduct, long iSubmitLatency, long iAmendLatency, double dTickSize, const string& sDataFile, long iExpoLimit, const string& sDate, const string& sLogPath, bool bWriteLog, bool bIsLiquidator, bool bLogMarketData, bool bIOC, int iIOCSpreadWidthLimit, int iArtificialSpread)
 :_sProduct(sProduct),
  _pLoadedData(NULL),
  _iNumLoadedDataPoints(0),
@@ -31,6 +31,7 @@ ExecutorSim::ExecutorSim(const string& sProduct, long iSubmitLatency, long iAmen
     _sDataFileName = sDataFile;
     _bIOC = bIOC;
     _iIOCSpreadWidthLimit = iIOCSpreadWidthLimit;
+    _iArtificialSpread = iArtificialSpread;
 
     _cPrevBatchLastPrint.iEpochTimeStamp = 0;
 
@@ -506,11 +507,13 @@ GridData* ExecutorSim::pgetLastDataPoint()
     if(_iCurrentDataIdx == 0)
     {
 //cerr << "using last data point " << _cPrevBatchLastPrint.iEpochTimeStamp << "|" << _cPrevBatchLastPrint.iBidSize << "|" << _cPrevBatchLastPrint.iBidInTicks << "|" << _cPrevBatchLastPrint.iAskInTicks << "|" << _cPrevBatchLastPrint.iAskSize << "|" << _cPrevBatchLastPrint.iLastInTicks << "|" << _cPrevBatchLastPrint.iTradeSize << "|" << _cPrevBatchLastPrint.iAccumuTradeSize << "\n";
+        adjustArtificialSpread(&_cPrevBatchLastPrint);
         return &_cPrevBatchLastPrint;
     }
     else
     {
 //cerr << "using last data point " << _pLoadedData[_iCurrentDataIdx-1].iEpochTimeStamp << "|" << _pLoadedData[_iCurrentDataIdx-1].iBidSize << "|" << _pLoadedData[_iCurrentDataIdx-1].iBidInTicks << "|" << _pLoadedData[_iCurrentDataIdx-1].iAskInTicks << "|" << _pLoadedData[_iCurrentDataIdx-1].iAskSize << "|" << _pLoadedData[_iCurrentDataIdx-1].iLastInTicks << "|" << _pLoadedData[_iCurrentDataIdx-1].iTradeSize << "|" << _pLoadedData[_iCurrentDataIdx-1].iAccumuTradeSize << "\n";
+        adjustArtificialSpread(&_pLoadedData[_iCurrentDataIdx - 1]);
         return &_pLoadedData[_iCurrentDataIdx - 1];
     }
 }
@@ -1624,6 +1627,8 @@ void ExecutorSim::newSignal(TradeSignal cTradeSignal, long iNextSignalTimeStamp)
                     }
                     else
                     {
+                        adjustArtificialSpread(&_pLoadedData[_iCurrentDataIdx]);
+
                         if(_bLogMarketData == true)
                         { 
                             _cLogger << _pLoadedData[_iCurrentDataIdx].iEpochTimeStamp << "|" <<  _pLoadedData[_iCurrentDataIdx].iBidSize << "|" << _pLoadedData[_iCurrentDataIdx].iBidInTicks << "|" << _pLoadedData[_iCurrentDataIdx].iAskInTicks << "|" << _pLoadedData[_iCurrentDataIdx].iAskSize << "|" << _pLoadedData[_iCurrentDataIdx].iLastInTicks << "|" << _pLoadedData[_iCurrentDataIdx].iTradeSize << "|" << _pLoadedData[_iCurrentDataIdx].iAccumuTradeSize << "\n";
@@ -1744,6 +1749,73 @@ double ExecutorSim::dgetFillRatio()
     else
     {
         return 0.0;
+    }
+}
+
+void ExecutorSim::adjustArtificialSpread(GridData* pDataPoint)
+{
+    if(_iArtificialSpread != 0)
+    {
+        bool bAdjustBidFirst = true;
+        bool bAdjustBid = true;
+
+        long iSpread = pDataPoint->iAskInTicks - pDataPoint->iBidInTicks;
+        //squash all ticks to target width for fx
+        if(true)
+        {
+            long iTicksToAllocate = iSpread - _iArtificialSpread;
+            bAdjustBid = bAdjustBidFirst;
+            if(iTicksToAllocate > 0)
+            {
+                while(iTicksToAllocate > 0)
+                {
+                    if(bAdjustBid)
+                    {
+                        pDataPoint->iBidInTicks = pDataPoint->iBidInTicks + 1;
+                        iTicksToAllocate = iTicksToAllocate - 1;
+                        bAdjustBid = false;
+                    }
+                    else
+                    {
+                        pDataPoint->iAskInTicks = pDataPoint->iAskInTicks - 1;
+                        iTicksToAllocate = iTicksToAllocate - 1;
+                        bAdjustBid = true;
+                    }
+                }
+            }
+            else if(iTicksToAllocate < 0)
+            {
+                while(iTicksToAllocate < 0)
+                {
+                    if(bAdjustBid)
+                    {
+                        pDataPoint->iBidInTicks = pDataPoint->iBidInTicks - 1;
+                        iTicksToAllocate = iTicksToAllocate + 1;
+                        bAdjustBid = false;
+                    }
+                    else
+                    {
+                        pDataPoint->iAskInTicks = pDataPoint->iAskInTicks + 1;
+                        iTicksToAllocate = iTicksToAllocate + 1;
+                        bAdjustBid = true;
+                    }
+                }
+            }
+
+            if(bAdjustBidFirst == true)
+            {
+                bAdjustBidFirst = false;
+            }
+            else
+            {
+                bAdjustBidFirst = true;
+            }
+
+            pDataPoint->dBid = pDataPoint->iBidInTicks * _dTickSize;
+            pDataPoint->dAsk = pDataPoint->iAskInTicks * _dTickSize;
+            pDataPoint->iBidSize = 1000000;
+            pDataPoint->iAskSize = 1000000;
+        }
     }
 }
 

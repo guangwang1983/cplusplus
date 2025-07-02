@@ -47,6 +47,7 @@ SchedulerConfig::SchedulerConfig()
     _cAllOptions.add_options()("TickSizeFile", boost::program_options::value<string>(&sTickSizeFile), "Tick Size File");
     _cAllOptions.add_options()("ProductSpecFile", boost::program_options::value<string>(&sProductSpecFile), "Product Spec File");
     _cAllOptions.add_options()("FigureFile", boost::program_options::value<string>(&sFigureFile), "Figure File");
+    _cAllOptions.add_options()("FXArtificialSpreadFile", boost::program_options::value<string>(&sFXArtificialSpreadFile), "FX Artificial Spread File");
     _cAllOptions.add_options()("HistoricDataPath", boost::program_options::value<string>(&sHistoricDataPath), "Historic Data Path");
     _cAllOptions.add_options()("OutputBasePath", boost::program_options::value<string>(&sOutputBasePath), "Output Base Path");
     _cAllOptions.add_options()("LogPath", boost::program_options::value<string>(&sLogPath), "Log path in config mode");

@@ -74,7 +74,7 @@ bool SchedulerBase::preCommonInit()
 
     _cSlotFirstWakeupCallTime = KOEpochTime(SystemClock::GetInstance()->cgetCurrentKOEpochTime().sec() + 30,0);
 
-    _pStaticDataHandler.reset(new StaticDataHandler(_cSchedulerCfg.sFXRateFile, _cSchedulerCfg.sProductSpecFile, _cSchedulerCfg.sTickSizeFile, _cSchedulerCfg.sDate));
+    _pStaticDataHandler.reset(new StaticDataHandler(_cSchedulerCfg.sFXRateFile, _cSchedulerCfg.sProductSpecFile, _cSchedulerCfg.sTickSizeFile, _cSchedulerCfg.sFXArtificialSpreadFile , _cSchedulerCfg.sDate));
 
     _pTradeSignalMerger = new TradeSignalMerger(this);
 

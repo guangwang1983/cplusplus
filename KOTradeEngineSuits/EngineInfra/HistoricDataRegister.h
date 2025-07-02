@@ -21,7 +21,7 @@ public:
     ~HistoricDataRegister();
 
     bool loadData();    
-    void psubscribeNewProduct(QuoteData* pNewQuoteData);
+    void psubscribeNewProduct(QuoteData* pNewQuoteData, int iArtificialSpread);
     KOEpochTime cgetNextUpdateTime();
     void applyNextUpdate(KOEpochTime cNextTimeStamp); 
     bool bproductHasNewUpdate(int iProductIndex);
@@ -44,6 +44,8 @@ private:
     vector<QuoteData*> _vRegisteredProducts;
 
     vector<bool> _vProductUpdated;
+
+    vector<int> _vArtificialSpread;
 
     KOScheduler* _pScheduler;
     string _sDate;

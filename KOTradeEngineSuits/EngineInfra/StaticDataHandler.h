@@ -15,7 +15,7 @@ namespace KO
 class StaticDataHandler
 {
 public:
-    StaticDataHandler(string sFXRateFileName, string sProductSpecFileName, string sTickSizeFileName, string sTodayDate);
+    StaticDataHandler(string sFXRateFileName, string sProductSpecFileName, string sTickSizeFileName, string sFXArtificialSpreadFile, string sTodayDate);
     ~StaticDataHandler();
 
     string sGetRootSymbol(const string& sProduct, InstrumentType eInstrumentType);
@@ -30,7 +30,8 @@ public:
     KOEpochTime cGetMarketCloseTime(const string& sRootSymbol, const string& sExchange);
     string sGetProductTyep(const string& sRootSymbol, const string& sExchange);
     long iGetNY4Latency(const string& sKOProduct);
-    long iGetTelcityLatency(const string& sKOProduct); 
+    long iGetTelcityLatency(const string& sKOProduct);
+    int iGetFXArticifialSpread(const string& sRootSymbol); 
 
 private:
     string _sTodayDate;
@@ -47,6 +48,7 @@ private:
     map<string, string> _mProductRIC;
     map<string, long> _mProductNY4Latency;
     map<string, long> _mProductTelcityLatency;
+    map<string, int> _mFXArtificialSpread;
 };
 
 };

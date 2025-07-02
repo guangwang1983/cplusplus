@@ -35,6 +35,7 @@ public:
     string              sScheduledSlotLiquidationFile;
     string              sLiquidationCommandFile;
     string              sForbiddenFXLPsFile;
+    string              sFXArtificialSpreadFile;
 
     vector<string>      vTraderConfigs;
 

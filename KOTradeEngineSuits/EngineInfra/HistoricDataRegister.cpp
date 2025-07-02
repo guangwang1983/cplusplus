@@ -31,9 +31,10 @@ HistoricDataRegister::~HistoricDataRegister()
     }
 }
 
-void HistoricDataRegister::psubscribeNewProduct(QuoteData* pNewQuoteData)
+void HistoricDataRegister::psubscribeNewProduct(QuoteData* pNewQuoteData, int iArtificialSpread)
 {
     _vRegisteredProducts.push_back(pNewQuoteData);
+    _vArtificialSpread.push_back(iArtificialSpread);
 
     _vProductUpdated.push_back(false);
 }
@@ -182,6 +183,74 @@ void HistoricDataRegister::applyNextUpdate(KOEpochTime cNextTimeStamp)
 
                 _vRegisteredProducts[i]->dWeightedMid = _vData[i][_vNextUpdateIndex[i]].dWeightedMid;
                 _vRegisteredProducts[i]->dWeightedMidInTicks = _vData[i][_vNextUpdateIndex[i]].dWeightedMidInTicks;
+
+                if(_vArtificialSpread[i] != 0)
+                {
+                    bool bAdjustBidFirst = true;
+                    bool bAdjustBid = true;
+
+                    long iSpread = _vRegisteredProducts[i]->iBestAskInTicks - _vRegisteredProducts[i]->iBestBidInTicks;
+                    //squash all ticks to target width for fx
+                    if(true)
+                    {
+                        long iTicksToAllocate = iSpread - _vArtificialSpread[i];
+                        bAdjustBid = bAdjustBidFirst;
+                        if(iTicksToAllocate > 0)
+                        {
+                            while(iTicksToAllocate > 0)
+                            {
+                                if(bAdjustBid)
+                                {
+                                    _vRegisteredProducts[i]->iBestBidInTicks = _vRegisteredProducts[i]->iBestBidInTicks + 1;
+                                    iTicksToAllocate = iTicksToAllocate - 1;
+                                    bAdjustBid = false;
+                                }
+                                else
+                                {
+                                    _vRegisteredProducts[i]->iBestAskInTicks = _vRegisteredProducts[i]->iBestAskInTicks - 1;
+                                    iTicksToAllocate = iTicksToAllocate - 1;
+                                    bAdjustBid = true;
+                                }
+                            }
+                        }
+                        else if(iTicksToAllocate < 0)
+                        {
+                            while(iTicksToAllocate < 0)
+                            {
+                                if(bAdjustBid)
+                                {
+                                    _vRegisteredProducts[i]->iBestBidInTicks = _vRegisteredProducts[i]->iBestBidInTicks - 1;
+                                    iTicksToAllocate = iTicksToAllocate + 1;
+                                    bAdjustBid = false;
+                                }
+                                else
+                                {
+                                    _vRegisteredProducts[i]->iBestAskInTicks = _vRegisteredProducts[i]->iBestAskInTicks + 1;
+                                    iTicksToAllocate = iTicksToAllocate + 1;
+                                    bAdjustBid = true;
+                                }
+                            }
+                        }
+
+                        if(bAdjustBidFirst == true)
+                        {
+                            bAdjustBidFirst = false;
+                        }
+                        else
+                        {
+                            bAdjustBidFirst = true;
+                        }
+
+                        _vRegisteredProducts[i]->dWeightedMidInTicks = (double)(_vRegisteredProducts[i]->iBestAskInTicks + _vRegisteredProducts[i]->iBestBidInTicks) / 2;
+                        _vRegisteredProducts[i]->dWeightedMid = _vRegisteredProducts[i]->dWeightedMidInTicks * _vRegisteredProducts[i]->dTickSize;
+
+                        _vRegisteredProducts[i]->dBestBid = _vRegisteredProducts[i]->iBestBidInTicks * _vRegisteredProducts[i]->dTickSize;
+                        _vRegisteredProducts[i]->dBestAsk = _vRegisteredProducts[i]->iBestAskInTicks * _vRegisteredProducts[i]->dTickSize;
+
+                        _vRegisteredProducts[i]->iBidSize = 1000000;
+                        _vRegisteredProducts[i]->iAskSize = 1000000;
+                    }
+                }
 
                 _vProductUpdated[i] = true;
             }
