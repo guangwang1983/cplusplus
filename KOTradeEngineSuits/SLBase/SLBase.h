@@ -180,6 +180,9 @@ protected:
     bool _bIsBullishMom;
     bool _bIsBearishMom;
 
+    bool _bIsBullishBreak;
+    bool _bIsBearishBreak;
+
     bool _bIsTrading;
 };
 

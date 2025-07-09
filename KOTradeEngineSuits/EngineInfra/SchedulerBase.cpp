@@ -10,6 +10,7 @@
 #include "EngineEvent.h"
 #include "../slsl/SLSL.h"
 #include "../sl3l/SL3L.h"
+#include "../sl3l_FI_Filter/SL3L_FI_Filter.h"
 #include "../slslUSFigure/SLSLUSFigure.h"
 #include "../slrl/SLRL.h"
 #include "../slrd/SLRD.h"
@@ -691,6 +692,11 @@ void SchedulerBase::registerTradeEngines()
                 else if(sEngineType.compare("SL3L") == 0)
                 {
                     pNewTradeEngine.reset(new SL3L(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType, _cSlotFirstWakeupCallTime));
+                }
+                else if(sEngineType.compare("SL3L_FI_Filter") == 0)
+                {
+cerr << "creating SL3L_FI_Filter";
+                    pNewTradeEngine.reset(new SL3L_FI_Filter(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType, _cSlotFirstWakeupCallTime));
                 }
                 else if(sEngineType.compare("SLSLUSFigure") == 0)
                 {

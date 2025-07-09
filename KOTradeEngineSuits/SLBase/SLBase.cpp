@@ -78,6 +78,9 @@ SLBase::SLBase(const string& sEngineRunTimePath,
     _bIsBullishMom = false;
     _bIsBearishMom = false;
 
+    _bIsBullishBreak = false;
+    _bIsBearishBreak = false;
+
     _iNumWakeupSeen = 0;
 }
 
@@ -1079,7 +1082,7 @@ void SLBase::updateSignal()
             {
                 if(_bIsTrading == true)
                 {
-                    if(_bIsBearishMom == false)
+                    if(_bIsBearishMom == false && _bIsBearishBreak == false)
                     {
                         _vSignalStates[iTriggerIdx] = BUY;
                         _vIsMarketOrders[iTriggerIdx] = false;
@@ -1102,7 +1105,7 @@ void SLBase::updateSignal()
             else if(dBuyEntryThresh < _pProductInstrument->dgetWeightedMid() &&
                     _pProductInstrument->dgetWeightedMid() < dBuyExitThresh) 
             {
-                if(_bIsBearishMom == false)
+                if(_bIsBearishMom == false && _bIsBearishBreak == false)
                 {
                     _vSignalStates[iTriggerIdx] = FLAT_ALL_SHORT;
                     _vIsMarketOrders[iTriggerIdx] = false;
@@ -1124,7 +1127,7 @@ void SLBase::updateSignal()
             else if(dSellExitThresh < _pProductInstrument->dgetWeightedMid() &&
                     _pProductInstrument->dgetWeightedMid() < dSellEntryThresh)
             {
-                if(_bIsBullishMom == false)
+                if(_bIsBullishMom == false && _bIsBullishBreak == false)
                 {
                     _vSignalStates[iTriggerIdx] = FLAT_ALL_LONG;
                     _vIsMarketOrders[iTriggerIdx] = false;
@@ -1140,7 +1143,7 @@ void SLBase::updateSignal()
             {
                 if(_bIsTrading == true)
                 {
-                    if(_bIsBullishMom == false)
+                    if(_bIsBullishMom == false && _bIsBullishBreak == false)
                     {
                         _vSignalStates[iTriggerIdx] = SELL;
                         _vIsMarketOrders[iTriggerIdx] = false;
@@ -1167,7 +1170,7 @@ void SLBase::updateSignal()
             {
                 if(_bIsTrading == true)
                 {
-                    if(_bIsBearishMom == false)
+                    if(_bIsBearishMom == false && _bIsBearishBreak == false)
                     {
                         _vSignalStates[iTriggerIdx] = BUY;
                         _vIsMarketOrders[iTriggerIdx] = false;
@@ -1191,7 +1194,7 @@ void SLBase::updateSignal()
             {
                 if(_bIsTrading == true)
                 {
-                    if(_bIsBullishMom == false)
+                    if(_bIsBullishMom == false && _bIsBullishBreak == false)
                     {
                         _vSignalStates[iTriggerIdx] = SELL;
                         _vIsMarketOrders[iTriggerIdx] = false;
@@ -1220,7 +1223,7 @@ void SLBase::updateSignal()
             }
             else if(dBuyExitThresh <= _pProductInstrument->dgetBid())
             {
-                if(_bIsBullishMom == false)
+                if(_bIsBullishMom == false && _bIsBullishBreak == false)
                 {
                     _vSignalStates[iTriggerIdx] = FLAT_ALL_LONG;
                     _vIsMarketOrders[iTriggerIdx] = false;
@@ -1234,7 +1237,7 @@ void SLBase::updateSignal()
             }
             else if(dSellExitThresh >= _pProductInstrument->dgetAsk())
             {
-                if(_bIsBearishMom == false)
+                if(_bIsBearishMom == false && _bIsBearishBreak == false)
                 {
                     _vSignalStates[iTriggerIdx] = FLAT_ALL_SHORT;
                     _vIsMarketOrders[iTriggerIdx] = false;
