@@ -118,7 +118,7 @@ void QuickFixScheduler::checkProductsForPriceSubscription()
         if(_vContractQuoteDatas[i]->bDataSubscribed == false && _vContractQuoteDatas[i]->bDataSubscriptionPending == false)
         {
             string sTBExchange = "NONE";
-            if(_vContractQuoteDatas[i]->sExchange == "XTMX" || _vContractQuoteDatas[i]->sExchange == "XASX")
+            if(_vContractQuoteDatas[i]->sExchange == "XTMX" || _vContractQuoteDatas[i]->sExchange == "XASX" || _vContractQuoteDatas[i]->sExchange == "XOSX")
             {
                 sTBExchange = "ACTIV";
             }       

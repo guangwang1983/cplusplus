@@ -1045,6 +1045,16 @@ int main(int argc, char *argv[])
                                 }
                                 else if(sLineAction == "Quote")
                                 {
+                                    if(sLineBidSize == "")
+                                    {
+                                        sLineBidSize = "1000000";
+                                    }
+
+                                    if(sLineAskSize == "")
+                                    {
+                                        sLineAskSize = "1000000";
+                                    }
+
                                     if(sLineBid != "" || sLineBidSize != "" || sLineAsk != "" || sLineAskSize != "")
                                     {
                                         if(sLineBid != "")
