@@ -108,6 +108,14 @@ struct QuoteData
 
     bool                            bCheckStaleness;
     bool                            bIsMarketOpen;
+
+    bool                            bIsTriCross;
+
+    int                             iTriFrontIdx;
+    int                             iTriBackIdx;
+
+    bool                            bTriFrontInverted;
+    bool                            bTriBackInverted;
 };
 
 }

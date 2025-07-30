@@ -87,6 +87,7 @@ private:
     bool bcheckOrderMsgHistory(KOOrderPtr pOrder);
 
     void updateQuoteDataSubscribed();
+    void calculateTriangPrices();
 
     bool _bIsLiveTrading;
     bool _bScheduleFinished;

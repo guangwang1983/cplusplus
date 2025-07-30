@@ -695,7 +695,6 @@ void SchedulerBase::registerTradeEngines()
                 }
                 else if(sEngineType.compare("SL3L_FI_Filter") == 0)
                 {
-cerr << "creating SL3L_FI_Filter";
                     pNewTradeEngine.reset(new SL3L_FI_Filter(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType, _cSlotFirstWakeupCallTime));
                 }
                 else if(sEngineType.compare("SLSLUSFigure") == 0)

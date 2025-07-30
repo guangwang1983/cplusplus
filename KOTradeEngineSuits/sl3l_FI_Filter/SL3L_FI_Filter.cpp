@@ -874,6 +874,24 @@ void SL3L_FI_Filter::loadRollDelta()
 
         _dLastSpreadBackMid = _dLastSpreadBackMid + dSpreadBackRollDelta;
     }
+
+    itr = _mDailyRolls.find(pair<string, string>(_sTodayDate, vContractQuoteDatas[3]->sExchange + "." + vContractQuoteDatas[3]->sProduct));
+    if(itr != _mDailyRolls.end())
+    {
+        double dFilterFrontRollDelta = itr->second;
+        _pFilterFrontInstrument->applyEXMAAdjustment(dFilterFrontRollDelta);
+        _pFilterFrontInstrument->applyWeightedStdevAdjustment(dFilterFrontRollDelta);
+        _cLogger << "Applying Filter Front Instrument Roll Delta " << dFilterFrontRollDelta << "\n";
+    }
+
+    itr = _mDailyRolls.find(pair<string, string>(_sTodayDate, vContractQuoteDatas[4]->sExchange + "." + vContractQuoteDatas[4]->sProduct));
+    if(itr != _mDailyRolls.end())
+    {
+        double dFilterBackRollDelta = itr->second;
+        _pFilterBackInstrument->applyEXMAAdjustment(dFilterBackRollDelta);
+        _pFilterBackInstrument->applyWeightedStdevAdjustment(dFilterBackRollDelta);
+        _cLogger << "Applying Filter Back Instrument Roll Delta " << dFilterBackRollDelta << "\n";
+    }
 }
 
 void SL3L_FI_Filter::saveOvernightStats(bool bRemoveToday)

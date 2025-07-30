@@ -139,6 +139,7 @@ void QuickFixSchedulerFXMultiBook::init()
         string root = _cSchedulerCfg.vFXSubProducts[i].substr(0, _cSchedulerCfg.vFXSubProducts[i].rfind("."));
         string sExchange = _cSchedulerCfg.vFXSubProducts[i].substr(_cSchedulerCfg.vFXSubProducts[i].rfind(".")+1);
 
+        int iParentCID = -1;
         int iSubCID = -1;
 
         for(unsigned int iCID = 0; iCID < _vContractQuoteDatas.size(); iCID++)
@@ -149,6 +150,8 @@ void QuickFixSchedulerFXMultiBook::init()
                 {
                     if(itr->first == iCID)
                     {
+                        iParentCID = iCID;
+
                         // de-reference quote data object to create a copy
                         itr->second.push_back((*_vContractQuoteDatas[iCID]));
                         itr->second.back().sProduct = _cSchedulerCfg.vFXSubProducts[i];
@@ -161,6 +164,7 @@ void QuickFixSchedulerFXMultiBook::init()
                         itr->second.back().iNumConsecutiveRejects = 0;
                         itr->second.back().bIgnoreVenue = false;
                         itr->second.back().cLastUpdateTime = KOEpochTime();
+                        itr->second.back().bIsTriCross = false;
                         iSubCID = itr->second.size() - 1;
                         itr->second.back().iCID = iSubCID;
                         break;
@@ -170,7 +174,52 @@ void QuickFixSchedulerFXMultiBook::init()
             }
         }
 
-        if(iSubCID == -1)
+        if(iSubCID != -1)
+        {
+            if(sExchange.find("FXTRI") != std::string::npos)
+            {
+                _vProductMultiBooks[iParentCID][iSubCID].bIsTriCross = true;
+
+                string sFront = root.substr(0,3);
+                string sBack = root.substr(3);
+
+                if(sFront == "CAD" || sFront == "JPY")
+                {
+                    _vProductMultiBooks[iParentCID][iSubCID].bTriFrontInverted = true;
+                    sFront = "USD" + sFront; 
+                }
+                else
+                {
+                    _vProductMultiBooks[iParentCID][iSubCID].bTriFrontInverted = false; 
+                    sFront = sFront + "USD";
+                }
+
+                if(sBack == "CAD" || sBack == "JPY")
+                {
+                    _vProductMultiBooks[iParentCID][iSubCID].bTriBackInverted = true; 
+                    sBack = "USD" + sBack;
+                }
+                else
+                {
+                    _vProductMultiBooks[iParentCID][iSubCID].bTriBackInverted = false;
+                    sBack = sBack + "USD";
+                }
+
+                for(unsigned int iCID = 0; iCID < _vContractQuoteDatas.size(); iCID++)
+                {
+                    if(_vContractQuoteDatas[iCID]->sTBProduct.find(sFront) != string::npos)
+                    {
+                        _vProductMultiBooks[iParentCID][iSubCID].iTriFrontIdx = iCID;
+                    }
+
+                    if(_vContractQuoteDatas[iCID]->sTBProduct.find(sBack) != string::npos)
+                    {
+                        _vProductMultiBooks[iParentCID][iSubCID].iTriBackIdx = iCID;
+                    }
+                }
+            }
+        }
+        else
         {
             stringstream cLogStringStream;
             cLogStringStream << "Unable to match sub FX product" << _cSchedulerCfg.vFXSubProducts[i] << " to parent product";
@@ -293,75 +342,78 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
         int iSubCID = 0;
         for(vector<QuoteData>::iterator pSubProduct = itr->second.begin(); pSubProduct != itr->second.end(); pSubProduct++)
         {
-            if(pSubProduct->bDataSubscribed == false && pSubProduct->bDataSubscriptionPending == false)
+            if(pSubProduct->sExchange.find("FXTRI") == std::string::npos)
             {
-                string sTBExchange = "";
-                sTBExchange = pSubProduct->sExchange;
-        
-                int iMDSessionsIdx = 0;
-                const FIX::SessionID* pMarketDataSessionID = NULL;
-                string sSenderCompID = "";
-                bool bIsLoggedOn = false;
-                for(;iMDSessionsIdx < _vMDSessions.size();iMDSessionsIdx++)
+                if(pSubProduct->bDataSubscribed == false && pSubProduct->bDataSubscriptionPending == false)
                 {
-                    if(_vMDSessions[iMDSessionsIdx].sSenderCompID.find(sTBExchange) != std::string::npos)
+                    string sTBExchange = "";
+                    sTBExchange = pSubProduct->sExchange;
+            
+                    int iMDSessionsIdx = 0;
+                    const FIX::SessionID* pMarketDataSessionID = NULL;
+                    string sSenderCompID = "";
+                    bool bIsLoggedOn = false;
+                    for(;iMDSessionsIdx < _vMDSessions.size();iMDSessionsIdx++)
                     {
-                        pMarketDataSessionID = _vMDSessions[iMDSessionsIdx].pFixSessionID;
-                        sSenderCompID = _vMDSessions[iMDSessionsIdx].sSenderCompID;
-                        bIsLoggedOn = _vMDSessions[iMDSessionsIdx].bIsLoggedOn;
-                        break;
+                        if(_vMDSessions[iMDSessionsIdx].sSenderCompID.find(sTBExchange) != std::string::npos)
+                        {
+                            pMarketDataSessionID = _vMDSessions[iMDSessionsIdx].pFixSessionID;
+                            sSenderCompID = _vMDSessions[iMDSessionsIdx].sSenderCompID;
+                            bIsLoggedOn = _vMDSessions[iMDSessionsIdx].bIsLoggedOn;
+                            break;
+                        }
                     }
-                }
 
-               if(pMarketDataSessionID == NULL)
-                {
-                    stringstream cStringStream;
-                    cStringStream << "Cannot find market data fix session for " << pSubProduct->sExchange;
-                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
-                }
-                else
-                {
-                    if(bIsLoggedOn == true)
+                   if(pMarketDataSessionID == NULL)
                     {
-                        FIX::Message message;
-                        message.getHeader().setField(8, "FIX.4.4");
-                        message.getHeader().setField(49, sSenderCompID);
-                        message.getHeader().setField(56, "TBRICKS");
-                        message.getHeader().setField(35, "V");
-
-                        message.setField(22, "9");
-
-                        message.setField(48, pSubProduct->sTBProduct);
-                        message.setField(15, _vContractQuoteDatas[iParentCID]->sCurrency);
-
                         stringstream cStringStream;
-                        cStringStream << "_" << iParentCID << "_" << iSubCID;
-                        message.setField(262, cStringStream.str());
-                        message.setField(55, _cSchedulerCfg.vProducts[iParentCID]);
-                    
-                        message.setField(263, "1"); // subcription type snapshot + updates
-                        message.setField(264, "1"); // tob only
-                        message.setField(265, "0"); // full refresh
+                        cStringStream << "Cannot find market data fix session for " << pSubProduct->sExchange;
+                        ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
+                    }
+                    else
+                    {
+                        if(bIsLoggedOn == true)
+                        {
+                            FIX::Message message;
+                            message.getHeader().setField(8, "FIX.4.4");
+                            message.getHeader().setField(49, sSenderCompID);
+                            message.getHeader().setField(56, "TBRICKS");
+                            message.getHeader().setField(35, "V");
 
-                        // number requested data field - bid size|bid|offer|offer size
-                        FIX44::MarketDataRequest::NoMDEntryTypes cMDEntryGroup;
-                        cMDEntryGroup.set(FIX::MDEntryType('0'));
-                        message.addGroup(cMDEntryGroup);
-                        cMDEntryGroup.set(FIX::MDEntryType('1'));
-                        message.addGroup(cMDEntryGroup);
-                        cMDEntryGroup.set(FIX::MDEntryType('2'));
-                        message.addGroup(cMDEntryGroup);
-                    
-                        // number of requested instrument
-                        message.setField(146, "1");
+                            message.setField(22, "9");
 
-                        FIX::Session::sendToTarget(message, *pMarketDataSessionID);
+                            message.setField(48, pSubProduct->sTBProduct);
+                            message.setField(15, _vContractQuoteDatas[iParentCID]->sCurrency);
 
-                        stringstream cLogStringStream;
-                        cLogStringStream << "Sending market data subscription request for sub FX product " << pSubProduct->sTBProduct;
-                        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _cSchedulerCfg.vProducts[iParentCID], cLogStringStream.str());
+                            stringstream cStringStream;
+                            cStringStream << "_" << iParentCID << "_" << iSubCID;
+                            message.setField(262, cStringStream.str());
+                            message.setField(55, _cSchedulerCfg.vProducts[iParentCID]);
+                        
+                            message.setField(263, "1"); // subcription type snapshot + updates
+                            message.setField(264, "1"); // tob only
+                            message.setField(265, "0"); // full refresh
 
-                        pSubProduct->bDataSubscriptionPending = true;
+                            // number requested data field - bid size|bid|offer|offer size
+                            FIX44::MarketDataRequest::NoMDEntryTypes cMDEntryGroup;
+                            cMDEntryGroup.set(FIX::MDEntryType('0'));
+                            message.addGroup(cMDEntryGroup);
+                            cMDEntryGroup.set(FIX::MDEntryType('1'));
+                            message.addGroup(cMDEntryGroup);
+                            cMDEntryGroup.set(FIX::MDEntryType('2'));
+                            message.addGroup(cMDEntryGroup);
+                        
+                            // number of requested instrument
+                            message.setField(146, "1");
+
+                            FIX::Session::sendToTarget(message, *pMarketDataSessionID);
+
+                            stringstream cLogStringStream;
+                            cLogStringStream << "Sending market data subscription request for sub FX product " << pSubProduct->sTBProduct;
+                            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _cSchedulerCfg.vProducts[iParentCID], cLogStringStream.str());
+
+                            pSubProduct->bDataSubscriptionPending = true;
+                        }
                     }
                 }
             }
@@ -642,12 +694,15 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                         cStringStreamPrice << sECN << " Snapshot:" << (*subQuoteItr).iBidSize << "|" << (*subQuoteItr).iBestBidInTicks << "|" << (*subQuoteItr).iBestAskInTicks << "|" << (*subQuoteItr).iAskSize;
                         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", (*subQuoteItr).sProduct, cStringStreamPrice.str());
 
-                        vLPs.push_back(LP());
-                        vLPs.back().iLPIdx = index;
-                        vLPs.back().iPriceInTicks = (*subQuoteItr).iBestAskInTicks;
-                        vLPs.back().iSize = (*subQuoteItr).iAskSize;
-                        vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
-                        vLPs.back().sExchange = sECN;
+                        if((*subQuoteItr).bIsTriCross != true)
+                        {
+                            vLPs.push_back(LP());
+                            vLPs.back().iLPIdx = index;
+                            vLPs.back().iPriceInTicks = (*subQuoteItr).iBestAskInTicks;
+                            vLPs.back().iSize = (*subQuoteItr).iAskSize;
+                            vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
+                            vLPs.back().sExchange = sECN;
+                        }
                     }
 
                     index = index + 1;
@@ -818,12 +873,15 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                         cStringStreamPrice << sECN << " Snapshot:" << subQuoteItr->iBidSize << "|" << subQuoteItr->iBestBidInTicks << "|" << subQuoteItr->iBestAskInTicks << "|" << subQuoteItr->iAskSize;
                         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", (*subQuoteItr).sProduct, cStringStreamPrice.str());
 
-                        vLPs.push_back(LP());
-                        vLPs.back().iLPIdx = index;
-                        vLPs.back().iPriceInTicks = subQuoteItr->iBestBidInTicks;
-                        vLPs.back().iSize = subQuoteItr->iBidSize;
-                        vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
-                        vLPs.back().sExchange = sECN;
+                        if((*subQuoteItr).bIsTriCross != true)
+                        {
+                            vLPs.push_back(LP());
+                            vLPs.back().iLPIdx = index;
+                            vLPs.back().iPriceInTicks = subQuoteItr->iBestBidInTicks;
+                            vLPs.back().iSize = subQuoteItr->iBidSize;
+                            vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
+                            vLPs.back().sExchange = sECN;
+                        }
                     }
 
                     index = index + 1;
@@ -1144,10 +1202,68 @@ void QuickFixSchedulerFXMultiBook::updateAllPnL()
     }
 }
 
+void QuickFixSchedulerFXMultiBook::calculateTriangPrices()
+{
+    for(map<unsigned int, vector<QuoteData>>::iterator itr = _vProductMultiBooks.begin(); itr != _vProductMultiBooks.end(); itr++)
+    {
+        for(vector<QuoteData>::iterator subQuoteItr = itr->second.begin(); subQuoteItr != itr->second.end(); subQuoteItr++)
+        {
+            if(subQuoteItr->bIsTriCross == true)
+            {
+                if(subQuoteItr->bTriFrontInverted == false && subQuoteItr->bTriBackInverted == false)
+                {
+                    subQuoteItr->dBestBid = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestBid / _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestAsk;
+                    subQuoteItr->dBestAsk = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestAsk / _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestBid;
+
+                    if(_vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iBidSize < _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->iAskSize)
+                    {
+                        subQuoteItr->iBidSize = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iBidSize;
+                    }
+                    else
+                    {
+                        subQuoteItr->iBidSize = _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->iAskSize;
+                    }
+
+                    if(_vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iAskSize < _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->iBidSize)
+                    {
+                        subQuoteItr->iAskSize = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iAskSize;
+                    }
+                    else
+                    {
+                        subQuoteItr->iAskSize = _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->iBidSize;
+                    }
+                }
+                else if(subQuoteItr->bTriFrontInverted == false && subQuoteItr->bTriBackInverted == true)
+                {
+                    subQuoteItr->iBidSize = 0;
+                    subQuoteItr->iAskSize = 0;
+                }
+                else if(subQuoteItr->bTriFrontInverted == true && subQuoteItr->bTriBackInverted == false)
+                {
+                    subQuoteItr->iBidSize = 0;
+                    subQuoteItr->iAskSize = 0;
+                }
+                else if(subQuoteItr->bTriFrontInverted == true && subQuoteItr->bTriBackInverted == true)
+                {
+                    subQuoteItr->iBidSize = 0;
+                    subQuoteItr->iAskSize = 0;
+                }
+
+                subQuoteItr->iBestBidInTicks = subQuoteItr->dBestBid / subQuoteItr->dTickSize;
+                subQuoteItr->iBestAskInTicks = subQuoteItr->dBestAsk / subQuoteItr->dTickSize;
+            }
+        }
+    }
+}
+
 void QuickFixSchedulerFXMultiBook::onTimer()
 {
     KOEpochTime cNewUpdateTime = cgetCurrentTime();
     checkOrderState(cNewUpdateTime);
+
+    // update all synthetic triangualtion cross prices first
+    calculateTriangPrices();
+
     SchedulerBase::wakeup(cNewUpdateTime);
     processTimeEvents(cNewUpdateTime);
 
@@ -2080,7 +2196,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                         }
                     }
 
-                    if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false)
+                    if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false && subQuoteItr->bIsTriCross == false )
                     {
                         if(subQuoteItr->iBestBidInTicks > iCombBestBidInTicks)
                         {
