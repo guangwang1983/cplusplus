@@ -620,11 +620,6 @@ void SchedulerBase::wakeup(KOEpochTime cCallTime)
 
 void SchedulerBase::registerTradeEngines()
 {
-    if(_cSchedulerCfg.bRandomiseConfigs == true)
-    {
-        std::random_shuffle (_cSchedulerCfg.vTraderConfigs.begin(), _cSchedulerCfg.vTraderConfigs.end());
-    }
-
     for(vector<string>::iterator it = _cSchedulerCfg.vTraderConfigs.begin();
         it != _cSchedulerCfg.vTraderConfigs.end();
         ++it)
