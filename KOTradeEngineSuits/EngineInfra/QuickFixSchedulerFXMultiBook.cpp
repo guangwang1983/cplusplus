@@ -35,6 +35,7 @@ struct LP
     long iSize;
     string sLPProductCode;
     string sExchange;
+    string bIsTriCross;
 };
 
 bool compareLPsAsk(LP LP1, LP LP2)
@@ -702,6 +703,7 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                             vLPs.back().iSize = (*subQuoteItr).iAskSize;
                             vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
                             vLPs.back().sExchange = sECN;
+                            vLPs.back().bIsTriCross = (*subQuoteItr).bIsTriCross;
                         }
                     }
 
@@ -881,6 +883,7 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                             vLPs.back().iSize = subQuoteItr->iBidSize;
                             vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
                             vLPs.back().sExchange = sECN;
+                            vLPs.back().bIsTriCross = (*subQuoteItr).bIsTriCross;
                         }
                     }
 

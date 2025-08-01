@@ -332,10 +332,21 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
                 {
                     if(_vContractQuoteDatas[i]->cLastUpdateTime.igetPrintable() != 0)
                     {
-                        if((SystemClock::GetInstance()->cgetCurrentKOEpochTime() - _vContractQuoteDatas[i]->cLastUpdateTime).sec() > 3600)
+                        int iProductStaleTime = 3600;
+                        if(_vContractQuoteDatas[i]->sRoot.compare("TONA") == 0)
                         {
+                            iProductStaleTime = 7200;
+                        }
+
+                        if((SystemClock::GetInstance()->cgetCurrentKOEpochTime() - _vContractQuoteDatas[i]->cLastUpdateTime).sec() > iProductStaleTime)
+                        {
+                            int iProductStaleTimeHour = iProductStaleTime / 2;
+
                             _vContractQuoteDatas[i]->bStalenessErrorTriggered = true;
-                            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, "Price staled for more than 1 hour");
+
+                            stringstream cStringStream;
+                            cStringStream << "Price staled for more than " << iProductStaleTimeHour << " hour";
+                            ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[i]->sProduct, cStringStream.str());
                         }
                     }
                 }
@@ -387,9 +398,15 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
 
     for(std::map<string, long>::iterator itr = mLastExchangeUpdateTimes.begin(); itr != mLastExchangeUpdateTimes.end(); ++itr)
     {
+        int iExchangeStaleTime = 900;
+        if(itr->first.compare("XOSX") == 0)
+        {
+            iExchangeStaleTime = 1800;
+        }
+
         if(mExchangeOpen[itr->first] == true)
         {
-            if(cCallTime.sec() - itr->second > 900)
+            if(cCallTime.sec() - itr->second > iExchangeStaleTime)
             {
                 std::map<string, bool>::iterator triggeredItr;
                 triggeredItr = _mExchangeStalenessTriggered.find(itr->first);
@@ -406,8 +423,10 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
 
                 if(bTriggered == false)
                 {
+                    int iExchangeStaleTimeMin = iExchangeStaleTime / 60;
+
                     stringstream cStringStream;
-                    cStringStream << "Prices on " << itr->first << " staled for more than 15 mins";
+                    cStringStream << "Prices on " << itr->first << " staled for more than " << iExchangeStaleTimeMin << " mins";
                     ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
                     _mExchangeStalenessTriggered[itr->first] = true;
                 }
