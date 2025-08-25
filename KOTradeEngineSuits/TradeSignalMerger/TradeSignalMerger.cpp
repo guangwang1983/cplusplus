@@ -72,7 +72,22 @@ void TradeSignalMerger::writeEoDResult(const string& sResultPath, const string& 
     {
         for(vector<Trade>::iterator itr = _vTotalTrades.begin(); itr != _vTotalTrades.end(); itr++)
         {
-            fsTransactionsFile << itr->cTradeTime.igetPrintable() << ";" << itr->sProduct << ";" << itr->iQty << ";" << itr->dPrice << "\n";
+            fsTransactionsFile << itr->cTradeTime.igetPrintable() << ";" << itr->sProduct << ";" << itr->iQty << ";" << itr->dPrice << ";";
+
+            if(itr->eTradeType == Trade::KO_INTERNAL)
+            {
+                fsTransactionsFile << "INTERNAL";
+            }
+            else if(itr->eTradeType == Trade::KO_PAPER)
+            {
+                fsTransactionsFile << "PAPER";
+            }
+            else if(itr->eTradeType == Trade::KO_TRI)
+            {
+                fsTransactionsFile << "TRI";
+            }
+
+            fsTransactionsFile << "\n";
 
             double dContractSize = _mProductToContractSize[itr->sProduct];
             double dDollarRate = _mProductToDollarRate[itr->sProduct];
@@ -82,7 +97,14 @@ void TradeSignalMerger::writeEoDResult(const string& sResultPath, const string& 
             double dNewFee;
             if(itr->eInstrumentType == KO_FX)
             {
-                dNewFee =  (double)abs(itr->iQty) * FXDominatorUSDRate * dTradingFee;
+                if(itr->eTradeType == Trade::KO_INTERNAL)
+                {
+                    dNewFee = 0;
+                }
+                else
+                {
+                    dNewFee =  (double)abs(itr->iQty) * FXDominatorUSDRate * dTradingFee;
+                }
             }
             else
             {
@@ -91,15 +113,21 @@ void TradeSignalMerger::writeEoDResult(const string& sResultPath, const string& 
 
             double dNewConsideration = (-1.0 * (double)itr->iQty * itr->dPrice * dContractSize * dDollarRate) - dNewFee;
 
+            long dTradePaperQty = 0;
+            if(itr->eTradeType != Trade::KO_INTERNAL)
+            {
+                dTradePaperQty = abs(itr->iQty);
+            }
+
             if(mProductsPnL.find(itr->sProduct) == mProductsPnL.end())
             {
                 mProductsPnL[itr->sProduct] = dNewConsideration;
-                mProductsVolume[itr->sProduct] = abs(itr->iQty);
+                mProductsVolume[itr->sProduct] = dTradePaperQty;
             }
             else
             {
                 mProductsPnL[itr->sProduct] = dNewConsideration + mProductsPnL[itr->sProduct];
-                mProductsVolume[itr->sProduct] = abs(itr->iQty) + mProductsVolume[itr->sProduct];
+                mProductsVolume[itr->sProduct] = dTradePaperQty + mProductsVolume[itr->sProduct];
             }
 
             dEodNotionalTurnOver = dEodNotionalTurnOver + abs(dNewConsideration);
@@ -157,6 +185,9 @@ int TradeSignalMerger::registerTradingSlot(const string& sProduct, const string&
         _mProductFXDominatorUSDRate[sProduct] = dDominatorUSDRate;
         _mProductToTradingFee[sProduct] = dTradingFee;
         _mProductPrintPos[sProduct] = false;
+        _mProductPendingTriFillQty[sProduct] = 0;
+        _mProductTheoVolume[sProduct] = 0;
+        _mProductPaperVolume[sProduct] = 0;
     }
 
     _mSlotSignals[sProduct].push_back(SlotSignal());
@@ -509,66 +540,154 @@ void TradeSignalMerger::aggregateAndSend(const string& sProduct)
     _pScheduler->sendToLiquidationExecutor(sProduct, 0);
 }
 
-void TradeSignalMerger::onFill(const string& sProduct, int iQty, double dPrice, bool bIsLiquidationFill, InstrumentType eInstrumentType)
+long TradeSignalMerger::igetPaperVolume(string sProduct)
 {
-//std::cerr << SystemClock::GetInstance()->cgetCurrentKOEpochTime().igetPrintable() << "TradeSignalMerger received external fill " << sProduct << " Qty " << iQty << " Price " << dPrice << "\n";
+    return _mProductPaperVolume[sProduct];
+}
 
+long TradeSignalMerger::igetTheoVolume(string sProduct)
+{
+    return _mProductTheoVolume[sProduct];
+}
+
+void TradeSignalMerger::addPendingTriFillQty(const string& sProduct, int iQty, double dPrice)
+{
     _vTotalTrades.push_back(Trade());
     _vTotalTrades.back().cTradeTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime();
     _vTotalTrades.back().sProduct = sProduct;
-    _vTotalTrades.back().iQty = iQty;
+    _vTotalTrades.back().iQty = iQty * -1; // we move this amount of position away from the major to from a cross, therefore minus
     _vTotalTrades.back().dPrice = dPrice;
-    _vTotalTrades.back().eInstrumentType = eInstrumentType;
+    _vTotalTrades.back().eInstrumentType = KO_FX;
+    _vTotalTrades.back().eTradeType = Trade::KO_INTERNAL;
 
-    vector<vector<SlotSignal>::iterator> vFilledOrderList;
-    vector<vector<SlotSignal>::iterator> vFullOrderList;
-    long iTotalWorkingQty = 0;
+cerr << "New Trade: " << sProduct << ";" << iQty << ";" << dPrice << ";INTERNAL\n";
 
+    stringstream cStringStream1;
+    cStringStream1 << "Adding " << iQty << " to pending tri fill qty";
+    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
 
-    for(vector<SlotSignal>::iterator itr = _mSlotSignals[sProduct].begin();
-        itr != _mSlotSignals[sProduct].end();
-        itr++)
+    _mProductPendingTriFillQty[sProduct] = _mProductPendingTriFillQty[sProduct] + iQty;
+}
+
+void TradeSignalMerger::onFill(const string& sProduct, int iQty, double dPrice, bool bIsLiquidationFill, InstrumentType eInstrumentType, bool bIsInteranlFill)
+{
+//std::cerr << SystemClock::GetInstance()->cgetCurrentKOEpochTime().igetPrintable() << "TradeSignalMerger received external fill " << sProduct << " Qty " << iQty << " Price " << dPrice << "\n";
+    if(_mProductPendingTriFillQty[sProduct] * iQty > 0)
     {
-        if(itr->iSignalState != 2)
+        long iAllocatedQty;
+
+        if(abs(_mProductPendingTriFillQty[sProduct]) > abs(iQty))
         {
-            if((itr->getWorkingQty() < 0) == (iQty < 0))
+            iAllocatedQty = iQty;
+
+            _mProductPendingTriFillQty[sProduct] = _mProductPendingTriFillQty[sProduct] - iAllocatedQty;
+            iQty = 0;
+
+            stringstream cStringStream;
+            cStringStream << "Allocating " << iAllocatedQty << " to pending trigulation trades. Left over pending is " << _mProductPendingTriFillQty[sProduct];
+            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream.str());
+        }
+        else
+        {
+            iAllocatedQty = _mProductPendingTriFillQty[sProduct];
+
+            iQty = iQty - iAllocatedQty;
+            _mProductPendingTriFillQty[sProduct] = 0;
+
+            stringstream cStringStream;
+            cStringStream << "Allocating " << iAllocatedQty << " to pending trigulation trades. left over pending is " << _mProductPendingTriFillQty[sProduct];
+            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream.str());
+        }
+
+        _mProductPaperVolume[sProduct] = _mProductPaperVolume[sProduct] + iAllocatedQty;
+
+        _vTotalTrades.push_back(Trade());
+        _vTotalTrades.back().cTradeTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime();
+        _vTotalTrades.back().sProduct = sProduct;
+        _vTotalTrades.back().iQty = iAllocatedQty;
+        _vTotalTrades.back().dPrice = dPrice;
+        _vTotalTrades.back().eInstrumentType = eInstrumentType;
+        _vTotalTrades.back().eTradeType = Trade::KO_TRI;
+
+cerr << "New Trade: " << sProduct << ";" << iAllocatedQty << ";" << dPrice << ";TRI\n";
+    }
+
+    stringstream cStringStream1;
+    cStringStream1 << "Fill qty to be allocated is " << iQty;
+    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+
+    if(iQty != 0)
+    {
+        _vTotalTrades.push_back(Trade());
+        _vTotalTrades.back().cTradeTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime();
+        _vTotalTrades.back().sProduct = sProduct;
+        _vTotalTrades.back().iQty = iQty;
+        _vTotalTrades.back().dPrice = dPrice;
+        _vTotalTrades.back().eInstrumentType = eInstrumentType;
+
+        if(bIsInteranlFill == true)
+        {
+            _vTotalTrades.back().eTradeType = Trade::KO_INTERNAL;
+cerr << "New Trade: " << sProduct << ";" << iQty << ";" << dPrice << ";INTERNAL\n";
+            _mProductTheoVolume[sProduct] = _mProductTheoVolume[sProduct] + iQty;
+        }
+        else
+        {
+            _vTotalTrades.back().eTradeType = Trade::KO_PAPER;
+cerr << "New Trade: " << sProduct << ";" << iQty << ";" << dPrice << ";PAPER\n";
+            _mProductTheoVolume[sProduct] = _mProductTheoVolume[sProduct] + iQty;
+            _mProductPaperVolume[sProduct] = _mProductPaperVolume[sProduct] + iQty;
+        }
+
+        vector<vector<SlotSignal>::iterator> vFilledOrderList;
+        vector<vector<SlotSignal>::iterator> vFullOrderList;
+        long iTotalWorkingQty = 0;
+
+        for(vector<SlotSignal>::iterator itr = _mSlotSignals[sProduct].begin();
+            itr != _mSlotSignals[sProduct].end();
+            itr++)
+        {
+            if(itr->iSignalState != 2)
             {
-                if(bIsLiquidationFill == false || (bIsLiquidationFill == true && itr->bMarketOrder))
+                if((itr->getWorkingQty() < 0) == (iQty < 0))
                 {
-                    vFilledOrderList.push_back(itr);
-                    iTotalWorkingQty = iTotalWorkingQty + itr->getWorkingQty();
+                    if(bIsLiquidationFill == false || (bIsLiquidationFill == true && itr->bMarketOrder))
+                    {
+                        vFilledOrderList.push_back(itr);
+                        iTotalWorkingQty = iTotalWorkingQty + itr->getWorkingQty();
+                    }
                 }
+            }
+
+            if(itr->bActivate == true)
+            {
+                vFullOrderList.push_back(itr);
             }
         }
 
-        if(itr->bActivate == true)
+        if(abs(iTotalWorkingQty) >= abs(iQty))
         {
-            vFullOrderList.push_back(itr);
+    //std::cerr << "alloccatng working fill " << iQty << " lots \n";
+            prorataFillAllOrders(vFilledOrderList, iQty);
         }
-    }
-
-    if(abs(iTotalWorkingQty) >= abs(iQty))
-    {
-//std::cerr << "alloccatng working fill " << iQty << " lots \n";
-        prorataFillAllOrders(vFilledOrderList, iQty);
-    }
-    else
-    {
-        long iLeftOverQty = iQty - iTotalWorkingQty;
-
-        if(iTotalWorkingQty != 0)
+        else
         {
-//std::cerr << "alloccated working fill " << iTotalWorkingQty << " lots \n";
-            prorataFillAllOrders(vFilledOrderList, iTotalWorkingQty);
+            long iLeftOverQty = iQty - iTotalWorkingQty;
+
+            if(iTotalWorkingQty != 0)
+            {
+    //std::cerr << "alloccated working fill " << iTotalWorkingQty << " lots \n";
+                prorataFillAllOrders(vFilledOrderList, iTotalWorkingQty);
+            }
+
+    //std::cerr << "alloccated unwanted fill " << iLeftOverQty << " lots \n";
+
+            stringstream cStringStream;
+            cStringStream << " Trying to allocate unwanted fill quantity " << iLeftOverQty << ".";
+            ErrorHandler::GetInstance()->newWarningMsg("0", "ALL", sProduct, cStringStream.str());
+
+            unwantedFillAllOrders(vFullOrderList, iLeftOverQty);
         }
-
-//std::cerr << "alloccated unwanted fill " << iLeftOverQty << " lots \n";
-
-        stringstream cStringStream;
-        cStringStream << " Trying to allocate unwanted fill quantity " << iLeftOverQty << ".";
-        ErrorHandler::GetInstance()->newWarningMsg("0", "ALL", sProduct, cStringStream.str());
-
-        unwantedFillAllOrders(vFullOrderList, iLeftOverQty);
     }
 }
 

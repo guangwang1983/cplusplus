@@ -271,7 +271,6 @@ protected:
     vector<int> _vProductPos;
 
     vector<double> _vProductConsideration;
-    vector<int> _vProductVolume;
     vector<string> _vProductTradingStatus;
 
     vector<double> _vProductStopLoss;

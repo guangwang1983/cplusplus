@@ -896,6 +896,9 @@ bool SchedulerBase::registerPriceForEngine(const string& sFullProductName, const
 
 void SchedulerBase::updateProductPnL(int iProductIndex)
 {
+    long iPaperVolume = _pTradeSignalMerger->igetPaperVolume(_vContractQuoteDatas[iProductIndex]->sProduct);
+    long iTheoVolume = _pTradeSignalMerger->igetTheoVolume(_vContractQuoteDatas[iProductIndex]->sProduct);
+
     double dProductMidPrice = _vContractQuoteDatas[iProductIndex]->dWeightedMid;
 
     double dPnLInPrice = _vProductConsideration[iProductIndex];
@@ -920,16 +923,16 @@ void SchedulerBase::updateProductPnL(int iProductIndex)
         string sBaseCurrencyPair = sBaseCurrency + "USD";
         double dBaseToDollar = _pStaticDataHandler->dGetFXRate(sBaseCurrencyPair);
 
-        dFee = _vProductVolume[iProductIndex] * dBaseToDollar * _vContractQuoteDatas[iProductIndex]->dTradingFee;
+        dFee = iPaperVolume * dBaseToDollar * _vContractQuoteDatas[iProductIndex]->dTradingFee;
     }
     else
     {
-        dFee = _vProductVolume[iProductIndex] * _vContractQuoteDatas[iProductIndex]->dTradingFee * _vContractQuoteDatas[iProductIndex]->dRateToDollar;
+        dFee = iPaperVolume * _vContractQuoteDatas[iProductIndex]->dTradingFee * _vContractQuoteDatas[iProductIndex]->dRateToDollar;
     }
     double dFinalPnL = dPnLInDollar - dFee;
 
     stringstream cStringStream;
-    cStringStream << "PNL: " << dFinalPnL << " Volume: " << _vProductVolume[iProductIndex] << " Position: " << iProductTotalPos << " Status: " << _vProductTradingStatus[iProductIndex];
+    cStringStream << "PNL: " << dFinalPnL << " Paper Volume: " << iPaperVolume << " Theo Volume: " << iTheoVolume << " Position: " << iProductTotalPos << " Status: " << _vProductTradingStatus[iProductIndex];
     ErrorHandler::GetInstance()->newInfoMsg("HB", "ALL", _vContractQuoteDatas[iProductIndex]->sProduct, cStringStream.str());
 
     if(_vProductLiquidating[iProductIndex] == false)
@@ -2701,7 +2704,7 @@ void SchedulerBase::updateSlotSignal(const string& sProduct, int iSlotID, long i
 
 void SchedulerBase::onFill(const string& sProduct, long iFilledQty, double dPrice, bool bIsLiquidator, InstrumentType eInstrumentType)
 {
-    _pTradeSignalMerger->onFill(sProduct, iFilledQty, dPrice, bIsLiquidator, eInstrumentType);
+    _pTradeSignalMerger->onFill(sProduct, iFilledQty, dPrice, bIsLiquidator, eInstrumentType, false);
 }
 
 }

@@ -52,7 +52,6 @@ bool KOScheduler::init()
         _vProductPos.push_back(0);
 
         _vProductConsideration.push_back(0.0);
-        _vProductVolume.push_back(0);
         _vProductTradingStatus.push_back("TRADING");
 
         _vProductStopLoss.push_back(_cSchedulerCfg.vProductStopLoss[i]);
@@ -484,7 +483,6 @@ void KOScheduler::onFill(const string& sProduct, long iFilledQty, double dPrice,
         }
 
         _vProductConsideration[iProductIdx] = _vProductConsideration[iProductIdx] - (double)iFilledQty * dPrice;
-        _vProductVolume[iProductIdx] = _vProductVolume[iProductIdx] + abs(iFilledQty);
 
         stringstream cStringStream;
         cStringStream << "iFilledQty: " << iFilledQty << " dPrice: " << dPrice << "\n";
@@ -515,7 +513,7 @@ void KOScheduler::onFill(const string& sProduct, long iFilledQty, double dPrice,
             }
         }
 
-        _pTradeSignalMerger->onFill(sAdjustedFillProduct, iFilledQty, dPrice, bIsLiquidator, eInstrumentType);
+        _pTradeSignalMerger->onFill(sAdjustedFillProduct, iFilledQty, dPrice, bIsLiquidator, eInstrumentType, false);
     }
 }
 
@@ -523,7 +521,7 @@ void KOScheduler::updateAllPnL()
 {
     for(unsigned int i = 0;i < _vContractQuoteDatas.size();i++)
     {
-        if(_vProductVolume[i] != 0)
+        if(_pTradeSignalMerger->igetPaperVolume(_vContractQuoteDatas[i]->sProduct) != 0)
         {
             updateProductPnL(i);
         }

@@ -13,6 +13,7 @@
 #include "quickfix/fix44/Logout.h"
 #include "SchedulerBase.h"
 #include "KOOrder.h"
+#include <mutex>
 
 using namespace KO;
 using namespace FIX;
@@ -87,7 +88,9 @@ private:
     bool bcheckOrderMsgHistory(KOOrderPtr pOrder);
 
     void updateQuoteDataSubscribed();
-    void calculateTriangPrices();
+    void calculateCombinedFXBook();
+
+    void removeDeletedOrder();
 
     bool _bIsLiveTrading;
     bool _bScheduleFinished;
@@ -113,6 +116,8 @@ private:
     long _iNumTimerCallsReceived;
 
     SimpleLogger _cSubBookMarketDataLogger;
+
+    mutable std::mutex _cMutex;
 };
 
 }

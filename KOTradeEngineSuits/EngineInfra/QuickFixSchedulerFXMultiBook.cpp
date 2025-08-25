@@ -35,7 +35,9 @@ struct LP
     long iSize;
     string sLPProductCode;
     string sExchange;
-    string bIsTriCross;
+    bool bIsTriCross;
+    int iFrontIdx;
+    int iBackIdx;
 };
 
 bool compareLPsAsk(LP LP1, LP LP2)
@@ -120,7 +122,6 @@ void QuickFixSchedulerFXMultiBook::init()
         _vProductLiquidationPos.push_back(0);
 
         _vProductConsideration.push_back(0.0);
-        _vProductVolume.push_back(0);
         _vProductTradingStatus.push_back("TRADING");
 
         _vProductStopLoss.push_back(_cSchedulerCfg.vProductStopLoss[i]);
@@ -646,11 +647,11 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
 
     if(bIsIOC == true)
     {
-        if(_vContractQuoteDatas[iProductIdx]->iBestAskInTicks - _vContractQuoteDatas[iProductIdx]->iBestBidInTicks > 25)
+        if(_vContractQuoteDatas[iProductIdx]->iBestAskInTicks - _vContractQuoteDatas[iProductIdx]->iBestBidInTicks > 50)
         {
             stringstream cStringStream;
             cStringStream.precision(10);
-            cStringStream << "Ignore new Order submit. Spread width greater than 25.";
+            cStringStream << "Ignore new Order submit. Spread width greater than 50.";
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
             return;
         }
@@ -695,16 +696,15 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                         cStringStreamPrice << sECN << " Snapshot:" << (*subQuoteItr).iBidSize << "|" << (*subQuoteItr).iBestBidInTicks << "|" << (*subQuoteItr).iBestAskInTicks << "|" << (*subQuoteItr).iAskSize;
                         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", (*subQuoteItr).sProduct, cStringStreamPrice.str());
 
-                        if((*subQuoteItr).bIsTriCross != true)
-                        {
-                            vLPs.push_back(LP());
-                            vLPs.back().iLPIdx = index;
-                            vLPs.back().iPriceInTicks = (*subQuoteItr).iBestAskInTicks;
-                            vLPs.back().iSize = (*subQuoteItr).iAskSize;
-                            vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
-                            vLPs.back().sExchange = sECN;
-                            vLPs.back().bIsTriCross = (*subQuoteItr).bIsTriCross;
-                        }
+                        vLPs.push_back(LP());
+                        vLPs.back().iLPIdx = index;
+                        vLPs.back().iPriceInTicks = (*subQuoteItr).iBestAskInTicks;
+                        vLPs.back().iSize = (*subQuoteItr).iAskSize;
+                        vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
+                        vLPs.back().sExchange = sECN;
+                        vLPs.back().bIsTriCross = (*subQuoteItr).bIsTriCross;
+                        vLPs.back().iFrontIdx = (*subQuoteItr).iTriFrontIdx;
+                        vLPs.back().iBackIdx = (*subQuoteItr).iTriBackIdx;
                     }
 
                     index = index + 1;
@@ -734,108 +734,156 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                         }
 
                         if(iOrderSize != 0)
-                        {
-                            stringstream cOrderIDStream;
-                            cOrderIDStream << iProductIdx << "_" << LPItr->iLPIdx << "_" << sgetNextFixOrderID();
-
-                            KOOrderPtr pOrder;
-                            string sPendingOrderID = cOrderIDStream.str();
-                            pOrder.reset(new KOOrder(sPendingOrderID, iProductIdx, _vContractQuoteDatas[iProductIdx]->dTickSize, bIsIOC, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sExchange, _vContractQuoteDatas[iProductIdx]->eInstrumentType, NULL));
-
-                            FIX::Message message;
-                            message.getHeader().setField(8, "FIX.4.4");
-                            message.getHeader().setField(49, _sOrderSenderCompID);
-                            message.getHeader().setField(56, "TBRICKS");
-                            message.getHeader().setField(35, "D"); // message type for new order
-                            message.getHeader().setField(11, sPendingOrderID); // client order id
-                            message.getHeader().setField(1, "TestAccount"); // account
-                            message.getHeader().setField(21, "1"); // exeuction type, always 1
-
-                            // set instrument
-                            message.setField(55, _vContractQuoteDatas[iProductIdx]->sProduct);
-                            message.setField(48, sLPProductCode);
-                            message.setField(22, "9");
-
-                            if(iOrderSize > 0)
+                        {   
+                            if(LPItr->bIsTriCross == false)
                             {
-                                message.setField(54, "1");
-                            }
-                            else if(iOrderSize < 0)
-                            {
-                                message.setField(54, "2");
-                            }
+                                stringstream cOrderIDStream;
+                                cOrderIDStream << iProductIdx << "_" << LPItr->iLPIdx << "_" << sgetNextFixOrderID();
 
-                            message.setField(207, "XXXX");
+                                KOOrderPtr pOrder;
+                                string sPendingOrderID = cOrderIDStream.str();
+                                pOrder.reset(new KOOrder(sPendingOrderID, iProductIdx, _vContractQuoteDatas[iProductIdx]->dTickSize, bIsIOC, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sExchange, _vContractQuoteDatas[iProductIdx]->eInstrumentType, NULL));
 
-                            stringstream cQtyStream;
-                            cQtyStream << abs(iOrderSize);
-                            message.setField(38, cQtyStream.str());
+                                FIX::Message message;
+                                message.getHeader().setField(8, "FIX.4.4");
+                                message.getHeader().setField(49, _sOrderSenderCompID);
+                                message.getHeader().setField(56, "TBRICKS");
+                                message.getHeader().setField(35, "D"); // message type for new order
+                                message.getHeader().setField(11, sPendingOrderID); // client order id
+                                message.getHeader().setField(1, "TestAccount"); // account
+                                message.getHeader().setField(21, "1"); // exeuction type, always 1
 
-                            double dOrderPrice = iActualOrderPrice * _vContractQuoteDatas[iProductIdx]->dTickSize;
-                            stringstream cPriceStream;
-                            cPriceStream.precision(10);
-                            cPriceStream << dOrderPrice;
-                            message.setField(44, cPriceStream.str()); // TODO: TEST all products with decimal prices ZT, ZF, ZN, I, L, FX
+                                // set instrument
+                                message.setField(55, _vContractQuoteDatas[iProductIdx]->sProduct);
+                                message.setField(48, sLPProductCode);
+                                message.setField(22, "9");
 
-                            message.setField(40, "2"); // limit order
-
-                            if(pOrder->_bIsIOC)
-                            {
-                                message.setField(59, "4"); 
-                            }
-                            else
-                            {
-                                message.setField(59, "0"); 
-                            }
-
-                            stringstream cStringStream;
-                            cStringStream.precision(10);
-                            if(bIsLiquidation == false)
-                            {
-                                cStringStream << "Submitting new order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << " to " << sExchange << ".";
-                            }
-                            else
-                            {
-                                cStringStream << "Submitting new liquidation order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << " to " << sExchange << ".";
-                            }
-                            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
-                            cStringStream.str("");
-                            cStringStream.clear();
-
-                            if(_bIsOrderSessionLoggedOn == true)
-                            {
-                                if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
+                                if(iOrderSize > 0)
                                 {
-                                    cStringStream << "Order submitted";
-                                    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                    message.setField(54, "1");
+                                }
+                                else if(iOrderSize < 0)
+                                {
+                                    message.setField(54, "2");
+                                }
 
-                                    if(bIsLiquidation == false)
-                                    {
-                                        _vProductOrderList[iProductIdx].push_back(pOrder);
-                                    }
-                                    else
-                                    {
-                                        _vProductLiquidationOrderList[iProductIdx].push_back(pOrder);
+                                message.setField(207, "XXXX");
 
-                                    }
+                                stringstream cQtyStream;
+                                cQtyStream << abs(iOrderSize);
+                                message.setField(38, cQtyStream.str());
 
-                                    pOrder->_eOrderState =  KOOrder::PENDINGCREATION;
-                                    pOrder->_cPendingRequestTime = cgetCurrentTime();
-                                    pOrder->_qOrderMessageHistory.push_back(cgetCurrentTime());
+                                double dOrderPrice = iActualOrderPrice * _vContractQuoteDatas[iProductIdx]->dTickSize;
+                                stringstream cPriceStream;
+                                cPriceStream.precision(10);
+                                cPriceStream << dOrderPrice;
+                                message.setField(44, cPriceStream.str()); // TODO: TEST all products with decimal prices ZT, ZF, ZN, I, L, FX
 
-                                    _iTotalNumMsg = _iTotalNumMsg + 1;
+                                message.setField(40, "2"); // limit order
+
+                                if(pOrder->_bIsIOC)
+                                {
+                                    message.setField(59, "4"); 
                                 }
                                 else
                                 {
-                                    cStringStream << "Failed to submit order";
-                                    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                    message.setField(59, "0"); 
+                                }
 
-                                    if(_vLastOrderError[iProductIdx] != cStringStream.str())
+                                stringstream cStringStream;
+                                cStringStream.precision(10);
+                                if(bIsLiquidation == false)
+                                {
+                                    cStringStream << "Submitting new order " << pOrder->sgetPendingOrderID() << ". qty " << iOrderSize << " price " << dOrderPrice << " to " << sExchange << ".";
+                                }
+                                else
+                                {
+                                    cStringStream << "Submitting new liquidation order " << pOrder->sgetPendingOrderID() << ". qty " << iOrderSize << " price " << dOrderPrice << " to " << sExchange << ".";
+                                }
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                cStringStream.str("");
+                                cStringStream.clear();
+
+                                if(_bIsOrderSessionLoggedOn == true)
+                                {
+                                    if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
                                     {
-                                        _vLastOrderError[iProductIdx] = cStringStream.str();
+                                        cStringStream << "Order submitted";
                                         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+
+                                        if(bIsLiquidation == false)
+                                        {
+                                            _vProductOrderList[iProductIdx].push_back(pOrder);
+                                        }
+                                        else
+                                        {
+                                            _vProductLiquidationOrderList[iProductIdx].push_back(pOrder);
+
+                                        }
+
+                                        pOrder->_eOrderState =  KOOrder::PENDINGCREATION;
+                                        pOrder->_cPendingRequestTime = cgetCurrentTime();
+                                        pOrder->_qOrderMessageHistory.push_back(cgetCurrentTime());
+
+                                        _iTotalNumMsg = _iTotalNumMsg + 1;
+                                    }
+                                    else
+                                    {
+                                        cStringStream << "Failed to submit order";
+                                        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+
+                                        if(_vLastOrderError[iProductIdx] != cStringStream.str())
+                                        {
+                                            _vLastOrderError[iProductIdx] = cStringStream.str();
+                                            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                        }
                                     }
                                 }
+                            }
+                            else
+                            {
+                                // need to work out the convention for CAD and JPY invertion
+                                long iBackOrderSize = iOrderSize * _vContractQuoteDatas[LPItr->iFrontIdx]->dBestAsk / _vContractQuoteDatas[LPItr->iBackIdx]->dBestBid * -1;
+                                double dOrderPrice = iActualOrderPrice * _vContractQuoteDatas[iProductIdx]->dTickSize;
+
+                                {
+                                    std::lock_guard<std::mutex> lk(_cMutex); 
+                                    _vProductPos[LPItr->iFrontIdx] = _vProductPos[LPItr->iFrontIdx] + (-1 * iOrderSize);
+                                    _vProductPos[LPItr->iBackIdx] = _vProductPos[LPItr->iBackIdx] + (-1 * iBackOrderSize);
+                                    _vProductPos[iProductIdx] = _vProductPos[iProductIdx] + iOrderSize;
+
+                                    _vProductConsideration[LPItr->iFrontIdx] = _vProductConsideration[LPItr->iFrontIdx] + iOrderSize * _vContractQuoteDatas[LPItr->iFrontIdx]->dBestAsk;
+                                    _vProductConsideration[LPItr->iBackIdx] = _vProductConsideration[LPItr->iBackIdx] + iBackOrderSize * _vContractQuoteDatas[LPItr->iBackIdx]->dBestBid;
+                                    _vProductConsideration[iProductIdx] = _vProductConsideration[iProductIdx] + (-1 * iOrderSize * iActualOrderPrice * _vContractQuoteDatas[iProductIdx]->dTickSize);
+
+                                    _pTradeSignalMerger->addPendingTriFillQty(_vContractQuoteDatas[LPItr->iFrontIdx]->sProduct, iOrderSize, _vContractQuoteDatas[LPItr->iFrontIdx]->dBestAsk);
+                                    _pTradeSignalMerger->addPendingTriFillQty(_vContractQuoteDatas[LPItr->iBackIdx]->sProduct, iBackOrderSize, _vContractQuoteDatas[LPItr->iBackIdx]->dBestBid);
+                                    _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iOrderSize, dOrderPrice, false, KO_FX, true);
+                                }
+
+                                stringstream cStringStream;
+                                cStringStream << "Submitting new triangulation order qty " << iOrderSize << " price " << dOrderPrice << " to " << sExchange << ".";
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+
+                                cStringStream.str("");
+                                cStringStream.clear();
+                                cStringStream << "Order submitted";
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+
+                                cStringStream.str("");
+                                cStringStream.clear();
+                                cStringStream << "Triangulation Fill qty: " << (-1 * iOrderSize) << " price: " << _vContractQuoteDatas[LPItr->iFrontIdx]->dBestAsk;
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[LPItr->iFrontIdx]->sProduct, cStringStream.str());
+
+                                cStringStream.str("");
+                                cStringStream.clear();
+                                cStringStream << "Triangulation Fill qty: " << (-1 * iBackOrderSize) << " price: " << _vContractQuoteDatas[LPItr->iBackIdx]->dBestBid;
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[LPItr->iBackIdx]->sProduct, cStringStream.str());
+
+                                cStringStream.str("");
+                                cStringStream.clear();
+                                cStringStream << "Triangulation Fill qty: " << iOrderSize << " price: " << dOrderPrice;
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
                             }
                         }
 
@@ -875,16 +923,15 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                         cStringStreamPrice << sECN << " Snapshot:" << subQuoteItr->iBidSize << "|" << subQuoteItr->iBestBidInTicks << "|" << subQuoteItr->iBestAskInTicks << "|" << subQuoteItr->iAskSize;
                         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", (*subQuoteItr).sProduct, cStringStreamPrice.str());
 
-                        if((*subQuoteItr).bIsTriCross != true)
-                        {
-                            vLPs.push_back(LP());
-                            vLPs.back().iLPIdx = index;
-                            vLPs.back().iPriceInTicks = subQuoteItr->iBestBidInTicks;
-                            vLPs.back().iSize = subQuoteItr->iBidSize;
-                            vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
-                            vLPs.back().sExchange = sECN;
-                            vLPs.back().bIsTriCross = (*subQuoteItr).bIsTriCross;
-                        }
+                        vLPs.push_back(LP());
+                        vLPs.back().iLPIdx = index;
+                        vLPs.back().iPriceInTicks = subQuoteItr->iBestBidInTicks;
+                        vLPs.back().iSize = subQuoteItr->iBidSize;
+                        vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
+                        vLPs.back().sExchange = sECN;
+                        vLPs.back().bIsTriCross = (*subQuoteItr).bIsTriCross;
+                        vLPs.back().iFrontIdx = (*subQuoteItr).iTriFrontIdx;
+                        vLPs.back().iBackIdx = (*subQuoteItr).iTriBackIdx;
                     }
 
                     index = index + 1;
@@ -915,107 +962,155 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
 
                         if(iOrderSize != 0)
                         {
-                            stringstream cOrderIDStream;
-                            cOrderIDStream << iProductIdx << "_" << LPItr->iLPIdx << "_" << sgetNextFixOrderID();
-
-                            KOOrderPtr pOrder;
-                            string sPendingOrderID = cOrderIDStream.str();
-                            pOrder.reset(new KOOrder(sPendingOrderID, iProductIdx, _vContractQuoteDatas[iProductIdx]->dTickSize, bIsIOC, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sExchange, _vContractQuoteDatas[iProductIdx]->eInstrumentType, NULL));
-
-                            FIX::Message message;
-                            message.getHeader().setField(8, "FIX.4.4");
-                            message.getHeader().setField(49, _sOrderSenderCompID);
-                            message.getHeader().setField(56, "TBRICKS");
-                            message.getHeader().setField(35, "D"); // message type for new order
-                            message.getHeader().setField(11, sPendingOrderID); // client order id
-                            message.getHeader().setField(1, "TestAccount"); // account
-                            message.getHeader().setField(21, "1"); // exeuction type, always 1
-
-                            // set instrument
-                            message.setField(55, _vContractQuoteDatas[iProductIdx]->sProduct);
-                            message.setField(48, sLPProductCode);
-                            message.setField(22, "9");
-
-                            if(iOrderSize > 0)
+                            if(LPItr->bIsTriCross == false)
                             {
-                                message.setField(54, "1");
-                            }
-                            else if(iOrderSize < 0)
-                            {
-                                message.setField(54, "2");
-                            }
+                                stringstream cOrderIDStream;
+                                cOrderIDStream << iProductIdx << "_" << LPItr->iLPIdx << "_" << sgetNextFixOrderID();
 
-                            message.setField(207, "XXXX");
+                                KOOrderPtr pOrder;
+                                string sPendingOrderID = cOrderIDStream.str();
+                                pOrder.reset(new KOOrder(sPendingOrderID, iProductIdx, _vContractQuoteDatas[iProductIdx]->dTickSize, bIsIOC, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sProduct, _vContractQuoteDatas[iProductIdx]->sExchange, _vContractQuoteDatas[iProductIdx]->eInstrumentType, NULL));
 
-                            stringstream cQtyStream;
-                            cQtyStream << abs(iOrderSize);
-                            message.setField(38, cQtyStream.str());
+                                FIX::Message message;
+                                message.getHeader().setField(8, "FIX.4.4");
+                                message.getHeader().setField(49, _sOrderSenderCompID);
+                                message.getHeader().setField(56, "TBRICKS");
+                                message.getHeader().setField(35, "D"); // message type for new order
+                                message.getHeader().setField(11, sPendingOrderID); // client order id
+                                message.getHeader().setField(1, "TestAccount"); // account
+                                message.getHeader().setField(21, "1"); // exeuction type, always 1
 
-                            double dOrderPrice = iActualOrderPrice * _vContractQuoteDatas[iProductIdx]->dTickSize;
-                            stringstream cPriceStream;
-                            cPriceStream.precision(10);
-                            cPriceStream << dOrderPrice;
-                            message.setField(44, cPriceStream.str()); // TODO: TEST all products with decimal prices ZT, ZF, ZN, I, L, FX
+                                // set instrument
+                                message.setField(55, _vContractQuoteDatas[iProductIdx]->sProduct);
+                                message.setField(48, sLPProductCode);
+                                message.setField(22, "9");
 
-                            message.setField(40, "2"); // limit order
-
-                            if(pOrder->_bIsIOC)
-                            {
-                                message.setField(59, "4"); 
-                            }
-                            else
-                            {
-                                message.setField(59, "0"); // TODO: need to test if orders get cancelled when the engine dies
-                            }
-
-                            stringstream cStringStream;
-                            cStringStream.precision(10);
-                            if(bIsLiquidation == false)
-                            {
-                                cStringStream << "Submitting new order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << " to " << sExchange << ".";
-                            }
-                            else
-                            {
-                                cStringStream << "Submitting new liquidation order " << pOrder->sgetPendingOrderID() << ". qty " << iQty << " price " << dOrderPrice << " to " << sExchange << ".";
-                            }
-                            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
-                            cStringStream.str("");
-                            cStringStream.clear();
-
-                            if(_bIsOrderSessionLoggedOn == true)
-                            {
-                                if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
+                                if(iOrderSize > 0)
                                 {
-                                    cStringStream << "Order submitted";
-                                    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                    message.setField(54, "1");
+                                }
+                                else if(iOrderSize < 0)
+                                {
+                                    message.setField(54, "2");
+                                }
 
-                                    if(bIsLiquidation == false)
-                                    {
-                                        _vProductOrderList[iProductIdx].push_back(pOrder);
-                                    }
-                                    else
-                                    {
-                                        _vProductLiquidationOrderList[iProductIdx].push_back(pOrder);
+                                message.setField(207, "XXXX");
 
-                                    }
+                                stringstream cQtyStream;
+                                cQtyStream << abs(iOrderSize);
+                                message.setField(38, cQtyStream.str());
 
-                                    pOrder->_eOrderState =  KOOrder::PENDINGCREATION;
-                                    pOrder->_cPendingRequestTime = cgetCurrentTime();
-                                    pOrder->_qOrderMessageHistory.push_back(cgetCurrentTime());
+                                double dOrderPrice = iActualOrderPrice * _vContractQuoteDatas[iProductIdx]->dTickSize;
+                                stringstream cPriceStream;
+                                cPriceStream.precision(10);
+                                cPriceStream << dOrderPrice;
+                                message.setField(44, cPriceStream.str()); // TODO: TEST all products with decimal prices ZT, ZF, ZN, I, L, FX
 
-                                    _iTotalNumMsg = _iTotalNumMsg + 1;
+                                message.setField(40, "2"); // limit order
+
+                                if(pOrder->_bIsIOC)
+                                {
+                                    message.setField(59, "4"); 
                                 }
                                 else
                                 {
-                                    cStringStream << "Failed to submit order";
-                                    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                    message.setField(59, "0"); // TODO: need to test if orders get cancelled when the engine dies
+                                }
 
-                                    if(_vLastOrderError[iProductIdx] != cStringStream.str())
+                                stringstream cStringStream;
+                                cStringStream.precision(10);
+                                if(bIsLiquidation == false)
+                                {
+                                    cStringStream << "Submitting new order " << pOrder->sgetPendingOrderID() << ". qty " << iOrderSize << " price " << dOrderPrice << " to " << sExchange << ".";
+                                }
+                                else
+                                {
+                                    cStringStream << "Submitting new liquidation order " << pOrder->sgetPendingOrderID() << ". qty " << iOrderSize << " price " << dOrderPrice << " to " << sExchange << ".";
+                                }
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                cStringStream.str("");
+                                cStringStream.clear();
+
+                                if(_bIsOrderSessionLoggedOn == true)
+                                {
+                                    if(FIX::Session::sendToTarget(message, *_pOrderSessionID))
                                     {
-                                        _vLastOrderError[iProductIdx] = cStringStream.str();
+                                        cStringStream << "Order submitted";
                                         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+
+                                        if(bIsLiquidation == false)
+                                        {
+                                            _vProductOrderList[iProductIdx].push_back(pOrder);
+                                        }
+                                        else
+                                        {
+                                            _vProductLiquidationOrderList[iProductIdx].push_back(pOrder);
+
+                                        }
+
+                                        pOrder->_eOrderState =  KOOrder::PENDINGCREATION;
+                                        pOrder->_cPendingRequestTime = cgetCurrentTime();
+                                        pOrder->_qOrderMessageHistory.push_back(cgetCurrentTime());
+
+                                        _iTotalNumMsg = _iTotalNumMsg + 1;
+                                    }
+                                    else
+                                    {
+                                        cStringStream << "Failed to submit order";
+                                        ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+
+                                        if(_vLastOrderError[iProductIdx] != cStringStream.str())
+                                        {
+                                            _vLastOrderError[iProductIdx] = cStringStream.str();
+                                            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                        }
                                     }
                                 }
+                            }
+                            else
+                            {
+                                // need to work out the convention for CAD and JPY invertion
+                                long iBackOrderSize = iOrderSize * _vContractQuoteDatas[LPItr->iFrontIdx]->dBestBid / _vContractQuoteDatas[LPItr->iBackIdx]->dBestAsk * -1;
+                                double dOrderPrice = iActualOrderPrice * _vContractQuoteDatas[iProductIdx]->dTickSize;
+
+                                {
+                                    std::lock_guard<std::mutex> lk(_cMutex);
+                                    _vProductPos[LPItr->iFrontIdx] = _vProductPos[LPItr->iFrontIdx] + (iOrderSize * -1);
+                                    _vProductPos[LPItr->iBackIdx] = _vProductPos[LPItr->iBackIdx] + (iBackOrderSize * -1);
+                                    _vProductPos[iProductIdx] = _vProductPos[iProductIdx] + iOrderSize;
+
+                                    _vProductConsideration[LPItr->iFrontIdx] = _vProductConsideration[LPItr->iFrontIdx] + iOrderSize * _vContractQuoteDatas[LPItr->iFrontIdx]->dBestBid;
+                                    _vProductConsideration[LPItr->iBackIdx] = _vProductConsideration[LPItr->iBackIdx] + iBackOrderSize * _vContractQuoteDatas[LPItr->iBackIdx]->dBestAsk;
+                                    _vProductConsideration[iProductIdx] = _vProductConsideration[iProductIdx] + (-1 * iOrderSize * iActualOrderPrice * _vContractQuoteDatas[iProductIdx]->dTickSize);
+
+                                    _pTradeSignalMerger->addPendingTriFillQty(_vContractQuoteDatas[LPItr->iFrontIdx]->sProduct, iOrderSize, _vContractQuoteDatas[LPItr->iFrontIdx]->dBestBid);
+                                    _pTradeSignalMerger->addPendingTriFillQty(_vContractQuoteDatas[LPItr->iBackIdx]->sProduct, iBackOrderSize, _vContractQuoteDatas[LPItr->iBackIdx]->dBestAsk);
+                                    _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iOrderSize, dOrderPrice, false, KO_FX, true);
+                                }
+
+                                stringstream cStringStream;
+                                cStringStream << "Submitting new triangulation order qty " << iOrderSize << " price " << dOrderPrice << " to " << sExchange << ".";
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+
+                                cStringStream.str("");
+                                cStringStream.clear();
+                                cStringStream << "Order submitted";
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+
+                                cStringStream.str("");
+                                cStringStream.clear();
+                                cStringStream << "Triangulation Fill qty: " << (-1 * iOrderSize) << " price: " << _vContractQuoteDatas[LPItr->iFrontIdx]->dBestBid;
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[LPItr->iFrontIdx]->sProduct, cStringStream.str());
+
+                                cStringStream.str("");
+                                cStringStream.clear();
+                                cStringStream << "Triangulation Fill qty: " << (-1 * iBackOrderSize) << " price: " << _vContractQuoteDatas[LPItr->iBackIdx]->dBestAsk;
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[LPItr->iBackIdx]->sProduct, cStringStream.str());
+
+                                cStringStream.str("");
+                                cStringStream.clear();
+                                cStringStream << "Triangulation Fill qty: " << iOrderSize << " price: " << dOrderPrice;
+                                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
                             }
                         }
 
@@ -1150,7 +1245,6 @@ void QuickFixSchedulerFXMultiBook::resetOrderState()
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", (*itr)->_sProduct, cStringStream.str());
 
                 (*itr)->_eOrderState = KOOrder::INACTIVE;
-                itr = pOrderList->erase(itr);
             }
             else
             {
@@ -1171,7 +1265,6 @@ void QuickFixSchedulerFXMultiBook::resetOrderState()
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", (*itr)->_sProduct, cStringStream.str());
 
                 (*itr)->_eOrderState = KOOrder::INACTIVE;
-                itr = pOrderList->erase(itr);
             }
             else
             {
@@ -1205,10 +1298,17 @@ void QuickFixSchedulerFXMultiBook::updateAllPnL()
     }
 }
 
-void QuickFixSchedulerFXMultiBook::calculateTriangPrices()
+void QuickFixSchedulerFXMultiBook::calculateCombinedFXBook()
 {
     for(map<unsigned int, vector<QuoteData>>::iterator itr = _vProductMultiBooks.begin(); itr != _vProductMultiBooks.end(); itr++)
     {
+        double dCombBestBid = 0;
+        double dCombBestAsk = 99999999.0;
+        int iCombBestBidInTicks = 0;
+        int iCombBestAskInTicks = 999999999;
+        int iCombBidSize = 0;
+        int iCombAskSize = 0;
+
         for(vector<QuoteData>::iterator subQuoteItr = itr->second.begin(); subQuoteItr != itr->second.end(); subQuoteItr++)
         {
             if(subQuoteItr->bIsTriCross == true)
@@ -1218,22 +1318,27 @@ void QuickFixSchedulerFXMultiBook::calculateTriangPrices()
                     subQuoteItr->dBestBid = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestBid / _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestAsk;
                     subQuoteItr->dBestAsk = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestAsk / _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestBid;
 
-                    if(_vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iBidSize < _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->iAskSize)
+                    long iFrontBidConsideration = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestBid * _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iBidSize;
+                    long iFrontAskConsideration = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestAsk * _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iAskSize;
+                    long iBackBidConsideration = _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestBid * _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->iBidSize;
+                    long iBackAskConsideration = _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestAsk * _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->iAskSize;
+
+                    if(iFrontBidConsideration < iBackAskConsideration)
                     {
-                        subQuoteItr->iBidSize = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iBidSize;
+                        subQuoteItr->iBidSize = iFrontBidConsideration / _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestBid;
                     }
                     else
                     {
-                        subQuoteItr->iBidSize = _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->iAskSize;
+                        subQuoteItr->iBidSize = iBackAskConsideration / _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestBid;
                     }
 
-                    if(_vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iAskSize < _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->iBidSize)
+                    if(iFrontAskConsideration < iBackBidConsideration)
                     {
-                        subQuoteItr->iAskSize = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iAskSize;
+                        subQuoteItr->iAskSize = iFrontAskConsideration / _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestAsk;
                     }
                     else
                     {
-                        subQuoteItr->iAskSize = _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->iBidSize;
+                        subQuoteItr->iAskSize = iFrontBidConsideration / _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestAsk;
                     }
                 }
                 else if(subQuoteItr->bTriFrontInverted == false && subQuoteItr->bTriBackInverted == true)
@@ -1255,17 +1360,117 @@ void QuickFixSchedulerFXMultiBook::calculateTriangPrices()
                 subQuoteItr->iBestBidInTicks = subQuoteItr->dBestBid / subQuoteItr->dTickSize;
                 subQuoteItr->iBestAskInTicks = subQuoteItr->dBestAsk / subQuoteItr->dTickSize;
             }
+
+            if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false)
+            {
+                if(subQuoteItr->iBestBidInTicks > iCombBestBidInTicks)
+                {
+                    iCombBestBidInTicks = subQuoteItr->iBestBidInTicks;
+                    dCombBestBid = subQuoteItr->dBestBid;
+                    iCombBidSize = subQuoteItr->iBidSize;
+                }
+                else if(subQuoteItr->iBestBidInTicks == iCombBestBidInTicks)
+                {
+                    iCombBidSize = iCombBidSize + subQuoteItr->iBidSize;
+                }
+
+                if(subQuoteItr->iBestAskInTicks < iCombBestAskInTicks)
+                {
+                    iCombBestAskInTicks = subQuoteItr->iBestAskInTicks;
+                    dCombBestAsk = subQuoteItr->dBestAsk;
+                    iCombAskSize = subQuoteItr->iAskSize;
+                }
+                else if(subQuoteItr->iBestAskInTicks == iCombBestAskInTicks)
+                {
+                    iCombAskSize = iCombAskSize + subQuoteItr->iAskSize;
+                }
+            }
+        }
+
+        _vContractQuoteDatas[itr->first]->iPrevBidInTicks = _vContractQuoteDatas[itr->first]->iBestBidInTicks;
+        _vContractQuoteDatas[itr->first]->iPrevAskInTicks = _vContractQuoteDatas[itr->first]->iBestAskInTicks;
+        _vContractQuoteDatas[itr->first]->iPrevBidSize = _vContractQuoteDatas[itr->first]->iBidSize;
+        _vContractQuoteDatas[itr->first]->iPrevAskSize = _vContractQuoteDatas[itr->first]->iAskSize;
+
+        _vContractQuoteDatas[itr->first]->dBestBid = dCombBestBid;
+        _vContractQuoteDatas[itr->first]->iBestBidInTicks = iCombBestBidInTicks;
+        _vContractQuoteDatas[itr->first]->iBidSize = iCombBidSize;
+
+        _vContractQuoteDatas[itr->first]->dBestAsk = dCombBestAsk;
+        _vContractQuoteDatas[itr->first]->iBestAskInTicks = iCombBestAskInTicks;
+        _vContractQuoteDatas[itr->first]->iAskSize = iCombAskSize;
+
+        if(_vContractQuoteDatas[itr->first]->iBidSize != 0 && _vContractQuoteDatas[itr->first]->iAskSize != 0)
+        {
+            if(_vContractQuoteDatas[itr->first]->iPrevBidInTicks != _vContractQuoteDatas[itr->first]->iBestBidInTicks || _vContractQuoteDatas[itr->first]->iPrevAskInTicks != _vContractQuoteDatas[itr->first]->iBestAskInTicks || _vContractQuoteDatas[itr->first]->iPrevBidSize != _vContractQuoteDatas[itr->first]->iBidSize || _vContractQuoteDatas[itr->first]->iPrevAskSize != _vContractQuoteDatas[itr->first]->iAskSize)
+            {
+                double dWeightedMidInTicks;
+                if(_vContractQuoteDatas[itr->first]->eInstrumentType == KO_FX)
+                {
+                    dWeightedMidInTicks = (double)(_vContractQuoteDatas[itr->first]->iBestAskInTicks + _vContractQuoteDatas[itr->first]->iBestBidInTicks) / 2;
+                }
+                else
+                {
+                    if(_vContractQuoteDatas[itr->first]->iBestAskInTicks - _vContractQuoteDatas[itr->first]->iBestBidInTicks != 1 || (_vContractQuoteDatas[itr->first]->iBidSize + _vContractQuoteDatas[itr->first]->iAskSize == 0))
+                    {
+                        dWeightedMidInTicks = (double)(_vContractQuoteDatas[itr->first]->iBestAskInTicks + _vContractQuoteDatas[itr->first]->iBestBidInTicks) / 2;
+                    }
+                    else
+                    {
+                        dWeightedMidInTicks = (double)_vContractQuoteDatas[itr->first]->iBestBidInTicks + (double)_vContractQuoteDatas[itr->first]->iBidSize / (double)(_vContractQuoteDatas[itr->first]->iBidSize + _vContractQuoteDatas[itr->first]->iAskSize);
+                    }
+                }
+
+                _vContractQuoteDatas[itr->first]->dWeightedMidInTicks = dWeightedMidInTicks;
+                _vContractQuoteDatas[itr->first]->dWeightedMid = dWeightedMidInTicks * _vContractQuoteDatas[itr->first]->dTickSize;
+                newPriceUpdate(itr->first);
+            }
+        }
+    }
+}
+
+void QuickFixSchedulerFXMultiBook::removeDeletedOrder()
+{
+    for(int i; i < _vProductOrderList.size(); i++)
+    {
+        for(vector<KOOrderPtr>::iterator itr = _vProductOrderList[i].begin(); itr != _vProductOrderList[i].end();)
+        {
+            if((*itr)->_eOrderState == KOOrder::INACTIVE)
+            {
+                itr = _vProductOrderList[i].erase(itr);
+            }
+            else
+            {
+                itr++;
+            }
+        }
+    }
+
+    for(int i; i < _vProductLiquidationOrderList.size(); i++)
+    {
+        for(vector<KOOrderPtr>::iterator itr = _vProductLiquidationOrderList[i].begin(); itr != _vProductLiquidationOrderList[i].end();)
+        {
+            if((*itr)->_eOrderState == KOOrder::INACTIVE)
+            {
+                itr = _vProductLiquidationOrderList[i].erase(itr);
+            }
+            else
+            {
+                itr++;
+            }
         }
     }
 }
 
 void QuickFixSchedulerFXMultiBook::onTimer()
 {
+    removeDeletedOrder();
+
     KOEpochTime cNewUpdateTime = cgetCurrentTime();
     checkOrderState(cNewUpdateTime);
 
-    // update all synthetic triangualtion cross prices first
-    calculateTriangPrices();
+    // update all synthetic triangualtion cross prices and combined prices from all liquidity source first
+    calculateCombinedFXBook();
 
     SchedulerBase::wakeup(cNewUpdateTime);
     processTimeEvents(cNewUpdateTime);
@@ -1766,26 +1971,29 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
             cStringStream.str("");
             cStringStream.clear();
 
-            if(bIsLiquidationOrder == false)
             {
-                _vProductPos[iProductIdx] = _vProductPos[iProductIdx] + iFillQty;
+                std::lock_guard<std::mutex> lk(_cMutex);
+
+                if(bIsLiquidationOrder == false)
+                {
+                    _vProductPos[iProductIdx] = _vProductPos[iProductIdx] + iFillQty;
+                }
+                else
+                {
+                    _vProductLiquidationPos[iProductIdx] = _vProductLiquidationPos[iProductIdx] + iFillQty;
+                }
+
+                _vProductConsideration[iProductIdx] = _vProductConsideration[iProductIdx] - (double)iFillQty * dFillPrice;
+
+                long iAdjustedFillQty = iFillQty;
+                if(_vContractQuoteDatas[iProductIdx]->sProduct.substr(0, 1) == "L")
+                {
+                    iAdjustedFillQty = iAdjustedFillQty * 2;
+                }
+
+                _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iAdjustedFillQty, dFillPrice, bIsLiquidationOrder, KO_FX, false);
             }
-            else
-            {
-                _vProductLiquidationPos[iProductIdx] = _vProductLiquidationPos[iProductIdx] + iFillQty;
-            }
-
-            _vProductConsideration[iProductIdx] = _vProductConsideration[iProductIdx] - (double)iFillQty * dFillPrice;
-            _vProductVolume[iProductIdx] = _vProductVolume[iProductIdx] + abs(iFillQty);
-
-            long iAdjustedFillQty = iFillQty;
-            if(_vContractQuoteDatas[iProductIdx]->sProduct.substr(0, 1) == "L")
-            {
-                iAdjustedFillQty = iAdjustedFillQty * 2;
-            }
-
-            _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iAdjustedFillQty, dFillPrice, bIsLiquidationOrder, KO_FX);
-
+        
             if(iRemainQty == 0)
             {
                 cStringStream << "Order Fully Filled - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << ".";
@@ -1795,7 +2003,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
 
                 pOrderToBeUpdated->_sTBOrderID = "";
                 pOrderToBeUpdated->_eOrderState = KOOrder::INACTIVE;
-                pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
         }
         else if(charExecType == '0' || charExecType == '5') // order accepted
@@ -1895,7 +2102,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
 
                 pOrderToBeUpdated->_sTBOrderID = "";
                 pOrderToBeUpdated->_eOrderState = KOOrder::INACTIVE;
-                pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
             else
             {
@@ -1911,7 +2117,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
 
                 pOrderToBeUpdated->_sTBOrderID = "";
                 pOrderToBeUpdated->_eOrderState = KOOrder::INACTIVE;
-                pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
         }
         else if(charExecType == '8') // order rejected
@@ -1975,7 +2180,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
 
                 pOrderToBeUpdated->_sTBOrderID = "";
                 pOrderToBeUpdated->_eOrderState = KOOrder::INACTIVE;
-                pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
             else
             {
@@ -2088,7 +2292,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
         }
     }
 
-
     int iCID;
     if(sClientRef.c_str()[0] == '_')
     {
@@ -2198,31 +2401,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                             }
                         }
                     }
-
-                    if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false && subQuoteItr->bIsTriCross == false )
-                    {
-                        if(subQuoteItr->iBestBidInTicks > iCombBestBidInTicks)
-                        {
-                            iCombBestBidInTicks = subQuoteItr->iBestBidInTicks;
-                            dCombBestBid = subQuoteItr->dBestBid;
-                            iCombBidSize = subQuoteItr->iBidSize;
-                        }
-                        else if(subQuoteItr->iBestBidInTicks == iCombBestBidInTicks)
-                        {
-                            iCombBidSize = iCombBidSize + subQuoteItr->iBidSize;
-                        }
-
-                        if(subQuoteItr->iBestAskInTicks < iCombBestAskInTicks)
-                        {
-                            iCombBestAskInTicks = subQuoteItr->iBestAskInTicks;
-                            dCombBestAsk = subQuoteItr->dBestAsk;
-                            iCombAskSize = subQuoteItr->iAskSize;
-                        }
-                        else if(subQuoteItr->iBestAskInTicks == iCombBestAskInTicks)
-                        {
-                            iCombAskSize = iCombAskSize + subQuoteItr->iAskSize;
-                        }
-                    }
                 }
 
                 break;
@@ -2253,58 +2431,57 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
             iCombBestBidInTicks = boost::math::iround(dCombBestBid / _vContractQuoteDatas[iCID]->dTickSize);
             iCombBestAskInTicks = boost::math::iround(dCombBestAsk / _vContractQuoteDatas[iCID]->dTickSize);
         }
-    }
 
-
-    if(bTradeUpdate == false)
-    {
-        _vContractQuoteDatas[iCID]->iTradeSize = 0;
-
-        _vContractQuoteDatas[iCID]->iPrevBidInTicks = _vContractQuoteDatas[iCID]->iBestBidInTicks;
-        _vContractQuoteDatas[iCID]->iPrevAskInTicks = _vContractQuoteDatas[iCID]->iBestAskInTicks;
-        _vContractQuoteDatas[iCID]->iPrevBidSize = _vContractQuoteDatas[iCID]->iBidSize;
-        _vContractQuoteDatas[iCID]->iPrevAskSize = _vContractQuoteDatas[iCID]->iAskSize;
-
-        _vContractQuoteDatas[iCID]->dBestBid = dCombBestBid;
-        _vContractQuoteDatas[iCID]->iBestBidInTicks = iCombBestBidInTicks;
-        _vContractQuoteDatas[iCID]->iBidSize = iCombBidSize;
-
-        _vContractQuoteDatas[iCID]->dBestAsk = dCombBestAsk;
-        _vContractQuoteDatas[iCID]->iBestAskInTicks = iCombBestAskInTicks;
-        _vContractQuoteDatas[iCID]->iAskSize = iCombAskSize;
-    }
-    else
-    {
-        _vContractQuoteDatas[iCID]->dLastTradePrice = dLastTrade;
-        _vContractQuoteDatas[iCID]->iLastTradeInTicks = boost::math::iround(_vContractQuoteDatas[iCID]->dLastTradePrice / _vContractQuoteDatas[iCID]->dTickSize);
-        _vContractQuoteDatas[iCID]->iTradeSize = iLastTradeSize;
-        _vContractQuoteDatas[iCID]->iAccumuTradeSize = _vContractQuoteDatas[iCID]->iAccumuTradeSize + iLastTradeSize;
-    }
-
-    if(_vContractQuoteDatas[iCID]->iBidSize != 0 && _vContractQuoteDatas[iCID]->iAskSize != 0)
-    {
-        if(_vContractQuoteDatas[iCID]->iPrevBidInTicks != _vContractQuoteDatas[iCID]->iBestBidInTicks || _vContractQuoteDatas[iCID]->iPrevAskInTicks != _vContractQuoteDatas[iCID]->iBestAskInTicks || _vContractQuoteDatas[iCID]->iPrevBidSize != _vContractQuoteDatas[iCID]->iBidSize || _vContractQuoteDatas[iCID]->iPrevAskSize != _vContractQuoteDatas[iCID]->iAskSize || iLastTradeSize != 0)
+        if(bTradeUpdate == false)
         {
-            double dWeightedMidInTicks;
-            if(_vContractQuoteDatas[iCID]->eInstrumentType == KO_FX)
+            _vContractQuoteDatas[iCID]->iTradeSize = 0;
+
+            _vContractQuoteDatas[iCID]->iPrevBidInTicks = _vContractQuoteDatas[iCID]->iBestBidInTicks;
+            _vContractQuoteDatas[iCID]->iPrevAskInTicks = _vContractQuoteDatas[iCID]->iBestAskInTicks;
+            _vContractQuoteDatas[iCID]->iPrevBidSize = _vContractQuoteDatas[iCID]->iBidSize;
+            _vContractQuoteDatas[iCID]->iPrevAskSize = _vContractQuoteDatas[iCID]->iAskSize;
+
+            _vContractQuoteDatas[iCID]->dBestBid = dCombBestBid;
+            _vContractQuoteDatas[iCID]->iBestBidInTicks = iCombBestBidInTicks;
+            _vContractQuoteDatas[iCID]->iBidSize = iCombBidSize;
+
+            _vContractQuoteDatas[iCID]->dBestAsk = dCombBestAsk;
+            _vContractQuoteDatas[iCID]->iBestAskInTicks = iCombBestAskInTicks;
+            _vContractQuoteDatas[iCID]->iAskSize = iCombAskSize;
+        }
+        else
+        {
+            _vContractQuoteDatas[iCID]->dLastTradePrice = dLastTrade;
+            _vContractQuoteDatas[iCID]->iLastTradeInTicks = boost::math::iround(_vContractQuoteDatas[iCID]->dLastTradePrice / _vContractQuoteDatas[iCID]->dTickSize);
+            _vContractQuoteDatas[iCID]->iTradeSize = iLastTradeSize;
+            _vContractQuoteDatas[iCID]->iAccumuTradeSize = _vContractQuoteDatas[iCID]->iAccumuTradeSize + iLastTradeSize;
+        }
+
+        if(_vContractQuoteDatas[iCID]->iBidSize != 0 && _vContractQuoteDatas[iCID]->iAskSize != 0)
+        {
+            if(_vContractQuoteDatas[iCID]->iPrevBidInTicks != _vContractQuoteDatas[iCID]->iBestBidInTicks || _vContractQuoteDatas[iCID]->iPrevAskInTicks != _vContractQuoteDatas[iCID]->iBestAskInTicks || _vContractQuoteDatas[iCID]->iPrevBidSize != _vContractQuoteDatas[iCID]->iBidSize || _vContractQuoteDatas[iCID]->iPrevAskSize != _vContractQuoteDatas[iCID]->iAskSize || iLastTradeSize != 0)
             {
-                dWeightedMidInTicks = (double)(_vContractQuoteDatas[iCID]->iBestAskInTicks + _vContractQuoteDatas[iCID]->iBestBidInTicks) / 2;
-            }
-            else
-            {
-                if(_vContractQuoteDatas[iCID]->iBestAskInTicks - _vContractQuoteDatas[iCID]->iBestBidInTicks != 1 || (_vContractQuoteDatas[iCID]->iBidSize + _vContractQuoteDatas[iCID]->iAskSize == 0))
+                double dWeightedMidInTicks;
+                if(_vContractQuoteDatas[iCID]->eInstrumentType == KO_FX)
                 {
                     dWeightedMidInTicks = (double)(_vContractQuoteDatas[iCID]->iBestAskInTicks + _vContractQuoteDatas[iCID]->iBestBidInTicks) / 2;
                 }
                 else
                 {
-                    dWeightedMidInTicks = (double)_vContractQuoteDatas[iCID]->iBestBidInTicks + (double)_vContractQuoteDatas[iCID]->iBidSize / (double)(_vContractQuoteDatas[iCID]->iBidSize + _vContractQuoteDatas[iCID]->iAskSize);
+                    if(_vContractQuoteDatas[iCID]->iBestAskInTicks - _vContractQuoteDatas[iCID]->iBestBidInTicks != 1 || (_vContractQuoteDatas[iCID]->iBidSize + _vContractQuoteDatas[iCID]->iAskSize == 0))
+                    {
+                        dWeightedMidInTicks = (double)(_vContractQuoteDatas[iCID]->iBestAskInTicks + _vContractQuoteDatas[iCID]->iBestBidInTicks) / 2;
+                    }
+                    else
+                    {
+                        dWeightedMidInTicks = (double)_vContractQuoteDatas[iCID]->iBestBidInTicks + (double)_vContractQuoteDatas[iCID]->iBidSize / (double)(_vContractQuoteDatas[iCID]->iBidSize + _vContractQuoteDatas[iCID]->iAskSize);
+                    }
                 }
-            }
 
-            _vContractQuoteDatas[iCID]->dWeightedMidInTicks = dWeightedMidInTicks;
-            _vContractQuoteDatas[iCID]->dWeightedMid = dWeightedMidInTicks * _vContractQuoteDatas[iCID]->dTickSize;
-            newPriceUpdate(iCID);
+                _vContractQuoteDatas[iCID]->dWeightedMidInTicks = dWeightedMidInTicks;
+                _vContractQuoteDatas[iCID]->dWeightedMid = dWeightedMidInTicks * _vContractQuoteDatas[iCID]->dTickSize;
+                newPriceUpdate(iCID);
+            }
         }
     }
 }
@@ -2467,7 +2644,6 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
 
                 pOrderToBeUpdated->_sTBOrderID = "";
                 pOrderToBeUpdated->_eOrderState = KOOrder::INACTIVE;
-                pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
             else
             {

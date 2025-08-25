@@ -370,7 +370,7 @@ void SL3L::dayStop()
 
     if(_bUpdateStats == true)
     {
-        if(_pScheduler->bisLiveTrading() == true)
+        if(_pScheduler->bisLiveTrading() == true || _pQuoteInstrument->sgetProductName().find("JPY") != std::string::npos)
         {
             saveOvernightStats(false);
         }

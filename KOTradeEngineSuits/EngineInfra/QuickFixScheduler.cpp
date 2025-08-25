@@ -95,7 +95,6 @@ void QuickFixScheduler::init()
         _vProductLiquidationPos.push_back(0);
 
         _vProductConsideration.push_back(0.0);
-        _vProductVolume.push_back(0);
         _vProductTradingStatus.push_back("TRADING");
 
         _vProductStopLoss.push_back(_cSchedulerCfg.vProductStopLoss[i]);
@@ -853,7 +852,6 @@ void QuickFixScheduler::resetOrderState()
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", (*itr)->_sProduct, cStringStream.str());
 
                 (*itr)->_eOrderState = KOOrder::INACTIVE;
-                itr = pOrderList->erase(itr);
             }
             else
             {
@@ -874,7 +872,6 @@ void QuickFixScheduler::resetOrderState()
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", (*itr)->_sProduct, cStringStream.str());
 
                 (*itr)->_eOrderState = KOOrder::INACTIVE;
-                itr = pOrderList->erase(itr);
             }
             else
             {
@@ -908,8 +905,43 @@ void QuickFixScheduler::updateAllPnL()
     }
 }
 
+void QuickFixScheduler::removeDeletedOrder()
+{
+    for(int i; i < _vProductOrderList.size(); i++)
+    {
+        for(vector<KOOrderPtr>::iterator itr = _vProductOrderList[i].begin(); itr != _vProductOrderList[i].end();)
+        {
+            if((*itr)->_eOrderState == KOOrder::INACTIVE)
+            {
+                itr = _vProductOrderList[i].erase(itr);
+            }
+            else
+            {
+                itr++;
+            }
+        }
+    }
+
+    for(int i; i < _vProductLiquidationOrderList.size(); i++)
+    {
+        for(vector<KOOrderPtr>::iterator itr = _vProductLiquidationOrderList[i].begin(); itr != _vProductLiquidationOrderList[i].end();)
+        {
+            if((*itr)->_eOrderState == KOOrder::INACTIVE)
+            {
+                itr = _vProductLiquidationOrderList[i].erase(itr);
+            }
+            else
+            {
+                itr++;
+            }
+        }
+    }
+}
+
 void QuickFixScheduler::onTimer()
 {
+    removeDeletedOrder();
+
     KOEpochTime cNewUpdateTime = cgetCurrentTime();
     checkOrderState(cNewUpdateTime);
     SchedulerBase::wakeup(cNewUpdateTime);
@@ -1317,7 +1349,6 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
             }
 
             _vProductConsideration[iProductIdx] = _vProductConsideration[iProductIdx] - (double)iFillQty * dFillPrice;
-            _vProductVolume[iProductIdx] = _vProductVolume[iProductIdx] + abs(iFillQty);
 
             long iAdjustedFillQty = iFillQty;
             if(_vContractQuoteDatas[iProductIdx]->sProduct.substr(0, 1) == "L")
@@ -1325,7 +1356,7 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
                 iAdjustedFillQty = iAdjustedFillQty * 2;
             }
 
-            _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iAdjustedFillQty, dFillPrice, bIsLiquidationOrder, KO_FUTURE);
+            _pTradeSignalMerger->onFill(_vContractQuoteDatas[iProductIdx]->sProduct, iAdjustedFillQty, dFillPrice, bIsLiquidationOrder, KO_FUTURE, false);
             if(iRemainQty == 0)
             {
                 cStringStream << "Order Fully Filled - Order confirmed ID: " << pOrderToBeUpdated->_sConfirmedOrderID << " pending ID: " << pOrderToBeUpdated->_sPendingOrderID << " TB ID: " << pOrderToBeUpdated->_sTBOrderID << ".";
@@ -1335,7 +1366,6 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
 
                 pOrderToBeUpdated->_sTBOrderID = "";
                 pOrderToBeUpdated->_eOrderState = KOOrder::INACTIVE;
-                pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
         }
         else if(charExecType == '0' || charExecType == '5') // order accepted
@@ -1400,7 +1430,6 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
 
                 pOrderToBeUpdated->_sTBOrderID = "";
                 pOrderToBeUpdated->_eOrderState = KOOrder::INACTIVE;
-                pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
             else
             {
@@ -1416,7 +1445,6 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
 
                 pOrderToBeUpdated->_sTBOrderID = "";
                 pOrderToBeUpdated->_eOrderState = KOOrder::INACTIVE;
-                pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
         }
         else if(charExecType == '8') // order rejected
@@ -1442,7 +1470,6 @@ void QuickFixScheduler::onMessage(const FIX44::ExecutionReport& cExecutionReport
 
                 pOrderToBeUpdated->_sTBOrderID = "";
                 pOrderToBeUpdated->_eOrderState = KOOrder::INACTIVE;
-                pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
             else
             {
@@ -1739,7 +1766,6 @@ void QuickFixScheduler::onMessage(const FIX44::BusinessMessageReject& cBusinessM
 
                 pOrderToBeUpdated->_sTBOrderID = "";
                 pOrderToBeUpdated->_eOrderState = KOOrder::INACTIVE;
-                pOrderList->erase(pOrderList->begin() + iOrderIdx);
             }
             else
             {

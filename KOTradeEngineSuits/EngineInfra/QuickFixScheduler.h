@@ -90,6 +90,8 @@ private:
 
     void updateQuoteDataSubscribed();
 
+    void removeDeletedOrder();
+
     bool _bIsLiveTrading;
     bool _bScheduleFinished;
     

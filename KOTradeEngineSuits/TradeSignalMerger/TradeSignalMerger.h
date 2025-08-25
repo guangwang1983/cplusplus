@@ -51,7 +51,11 @@ public:
     void activateSlot(const string& sProduct, long iSlotID);
     void deactivateSlot(const string& sProduct, long iSlotID);
     void updateSlotSignal(const string& sProduct, long iSlotID, long iDesiredPos, int iSignalState, bool bMarketOrder);
-    void onFill(const string& sProduct, int iQty, double dPrice, bool bIsLiquidationFill, InstrumentType eInstrumentType);
+    void onFill(const string& sProduct, int iQty, double dPrice, bool bIsLiquidationFill, InstrumentType eInstrumentType, bool bIsInteranlFill);
+    void addPendingTriFillQty(const string& sProduct, int iQty, double dPrice);
+
+    long igetPaperVolume(string sProduct);
+    long igetTheoVolume(string sProduct);
 
     void takePosSnapShot();
 
@@ -72,7 +76,11 @@ private:
     map<string, double> _mProductFXDominatorUSDRate;
     map<string, double> _mProductToTradingFee;
     map<string, bool> _mProductPrintPos;
-   
+    map<string, long> _mProductPendingTriFillQty;
+  
+    map<string, bool> _mProductTheoVolume;
+    map<string, bool> _mProductPaperVolume;
+ 
     vector<Trade> _vTotalTrades;
 
     int _iNextSlotID;

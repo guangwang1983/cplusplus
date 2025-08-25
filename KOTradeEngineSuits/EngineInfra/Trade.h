@@ -12,11 +12,19 @@ namespace KO
 
 struct Trade
 {
+    enum TradeType
+    {
+        KO_PAPER,
+        KO_INTERNAL,
+        KO_TRI,
+    };                       
+
 	KOEpochTime                 cTradeTime;
 	string 						sProduct;
 	long                        iQty;
 	double                      dPrice;
     InstrumentType              eInstrumentType;
+    TradeType                   eTradeType;
 };
 
 class compareTradeByTime
