@@ -599,7 +599,7 @@ void TradeSignalMerger::onFill(const string& sProduct, int iQty, double dPrice, 
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream.str());
         }
 
-        _mProductPaperVolume[sProduct] = _mProductPaperVolume[sProduct] + iAllocatedQty;
+        _mProductPaperVolume[sProduct] = _mProductPaperVolume[sProduct] + abs(iAllocatedQty);
 
         _vTotalTrades.push_back(Trade());
         _vTotalTrades.back().cTradeTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime();
@@ -629,14 +629,14 @@ cerr << "New Trade: " << sProduct << ";" << iAllocatedQty << ";" << dPrice << ";
         {
             _vTotalTrades.back().eTradeType = Trade::KO_INTERNAL;
 cerr << "New Trade: " << sProduct << ";" << iQty << ";" << dPrice << ";INTERNAL\n";
-            _mProductTheoVolume[sProduct] = _mProductTheoVolume[sProduct] + iQty;
+            _mProductTheoVolume[sProduct] = _mProductTheoVolume[sProduct] + abs(iQty);
         }
         else
         {
             _vTotalTrades.back().eTradeType = Trade::KO_PAPER;
 cerr << "New Trade: " << sProduct << ";" << iQty << ";" << dPrice << ";PAPER\n";
-            _mProductTheoVolume[sProduct] = _mProductTheoVolume[sProduct] + iQty;
-            _mProductPaperVolume[sProduct] = _mProductPaperVolume[sProduct] + iQty;
+            _mProductTheoVolume[sProduct] = _mProductTheoVolume[sProduct] + abs(iQty);
+            _mProductPaperVolume[sProduct] = _mProductPaperVolume[sProduct] + abs(iQty);
         }
 
         vector<vector<SlotSignal>::iterator> vFilledOrderList;

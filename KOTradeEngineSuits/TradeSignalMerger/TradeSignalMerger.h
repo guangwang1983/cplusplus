@@ -78,8 +78,8 @@ private:
     map<string, bool> _mProductPrintPos;
     map<string, long> _mProductPendingTriFillQty;
   
-    map<string, bool> _mProductTheoVolume;
-    map<string, bool> _mProductPaperVolume;
+    map<string, long> _mProductTheoVolume;
+    map<string, long> _mProductPaperVolume;
  
     vector<Trade> _vTotalTrades;
 

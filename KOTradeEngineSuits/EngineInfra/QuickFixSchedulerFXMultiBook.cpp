@@ -1357,73 +1357,79 @@ void QuickFixSchedulerFXMultiBook::calculateCombinedFXBook()
                     subQuoteItr->iAskSize = 0;
                 }
 
-                subQuoteItr->iBestBidInTicks = subQuoteItr->dBestBid / subQuoteItr->dTickSize;
-                subQuoteItr->iBestAskInTicks = subQuoteItr->dBestAsk / subQuoteItr->dTickSize;
+                subQuoteItr->iBestBidInTicks = ceil(subQuoteItr->dBestBid / subQuoteItr->dTickSize);
+                subQuoteItr->iBestAskInTicks = floor(subQuoteItr->dBestAsk / subQuoteItr->dTickSize);
             }
 
-            if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false)
+            if(_vContractQuoteDatas[itr->first]->sProduct.find("USD") == std::string::npos)
             {
-                if(subQuoteItr->iBestBidInTicks > iCombBestBidInTicks)
+                if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false)
                 {
-                    iCombBestBidInTicks = subQuoteItr->iBestBidInTicks;
-                    dCombBestBid = subQuoteItr->dBestBid;
-                    iCombBidSize = subQuoteItr->iBidSize;
-                }
-                else if(subQuoteItr->iBestBidInTicks == iCombBestBidInTicks)
-                {
-                    iCombBidSize = iCombBidSize + subQuoteItr->iBidSize;
-                }
+                    if(subQuoteItr->iBestBidInTicks > iCombBestBidInTicks)
+                    {
+                        iCombBestBidInTicks = subQuoteItr->iBestBidInTicks;
+                        dCombBestBid = subQuoteItr->dBestBid;
+                        iCombBidSize = subQuoteItr->iBidSize;
+                    }
+                    else if(subQuoteItr->iBestBidInTicks == iCombBestBidInTicks)
+                    {
+                        iCombBidSize = iCombBidSize + subQuoteItr->iBidSize;
+                    }
 
-                if(subQuoteItr->iBestAskInTicks < iCombBestAskInTicks)
-                {
-                    iCombBestAskInTicks = subQuoteItr->iBestAskInTicks;
-                    dCombBestAsk = subQuoteItr->dBestAsk;
-                    iCombAskSize = subQuoteItr->iAskSize;
-                }
-                else if(subQuoteItr->iBestAskInTicks == iCombBestAskInTicks)
-                {
-                    iCombAskSize = iCombAskSize + subQuoteItr->iAskSize;
+                    if(subQuoteItr->iBestAskInTicks < iCombBestAskInTicks)
+                    {
+                        iCombBestAskInTicks = subQuoteItr->iBestAskInTicks;
+                        dCombBestAsk = subQuoteItr->dBestAsk;
+                        iCombAskSize = subQuoteItr->iAskSize;
+                    }
+                    else if(subQuoteItr->iBestAskInTicks == iCombBestAskInTicks)
+                    {
+                        iCombAskSize = iCombAskSize + subQuoteItr->iAskSize;
+                    }
                 }
             }
         }
 
-        _vContractQuoteDatas[itr->first]->iPrevBidInTicks = _vContractQuoteDatas[itr->first]->iBestBidInTicks;
-        _vContractQuoteDatas[itr->first]->iPrevAskInTicks = _vContractQuoteDatas[itr->first]->iBestAskInTicks;
-        _vContractQuoteDatas[itr->first]->iPrevBidSize = _vContractQuoteDatas[itr->first]->iBidSize;
-        _vContractQuoteDatas[itr->first]->iPrevAskSize = _vContractQuoteDatas[itr->first]->iAskSize;
-
-        _vContractQuoteDatas[itr->first]->dBestBid = dCombBestBid;
-        _vContractQuoteDatas[itr->first]->iBestBidInTicks = iCombBestBidInTicks;
-        _vContractQuoteDatas[itr->first]->iBidSize = iCombBidSize;
-
-        _vContractQuoteDatas[itr->first]->dBestAsk = dCombBestAsk;
-        _vContractQuoteDatas[itr->first]->iBestAskInTicks = iCombBestAskInTicks;
-        _vContractQuoteDatas[itr->first]->iAskSize = iCombAskSize;
-
-        if(_vContractQuoteDatas[itr->first]->iBidSize != 0 && _vContractQuoteDatas[itr->first]->iAskSize != 0)
+        if(_vContractQuoteDatas[itr->first]->sProduct.find("USD") == std::string::npos)
         {
-            if(_vContractQuoteDatas[itr->first]->iPrevBidInTicks != _vContractQuoteDatas[itr->first]->iBestBidInTicks || _vContractQuoteDatas[itr->first]->iPrevAskInTicks != _vContractQuoteDatas[itr->first]->iBestAskInTicks || _vContractQuoteDatas[itr->first]->iPrevBidSize != _vContractQuoteDatas[itr->first]->iBidSize || _vContractQuoteDatas[itr->first]->iPrevAskSize != _vContractQuoteDatas[itr->first]->iAskSize)
+            _vContractQuoteDatas[itr->first]->iPrevBidInTicks = _vContractQuoteDatas[itr->first]->iBestBidInTicks;
+            _vContractQuoteDatas[itr->first]->iPrevAskInTicks = _vContractQuoteDatas[itr->first]->iBestAskInTicks;
+            _vContractQuoteDatas[itr->first]->iPrevBidSize = _vContractQuoteDatas[itr->first]->iBidSize;
+            _vContractQuoteDatas[itr->first]->iPrevAskSize = _vContractQuoteDatas[itr->first]->iAskSize;
+
+            _vContractQuoteDatas[itr->first]->dBestBid = dCombBestBid;
+            _vContractQuoteDatas[itr->first]->iBestBidInTicks = iCombBestBidInTicks;
+            _vContractQuoteDatas[itr->first]->iBidSize = iCombBidSize;
+
+            _vContractQuoteDatas[itr->first]->dBestAsk = dCombBestAsk;
+            _vContractQuoteDatas[itr->first]->iBestAskInTicks = iCombBestAskInTicks;
+            _vContractQuoteDatas[itr->first]->iAskSize = iCombAskSize;
+
+            if(_vContractQuoteDatas[itr->first]->iBidSize != 0 && _vContractQuoteDatas[itr->first]->iAskSize != 0)
             {
-                double dWeightedMidInTicks;
-                if(_vContractQuoteDatas[itr->first]->eInstrumentType == KO_FX)
+                if(_vContractQuoteDatas[itr->first]->iPrevBidInTicks != _vContractQuoteDatas[itr->first]->iBestBidInTicks || _vContractQuoteDatas[itr->first]->iPrevAskInTicks != _vContractQuoteDatas[itr->first]->iBestAskInTicks || _vContractQuoteDatas[itr->first]->iPrevBidSize != _vContractQuoteDatas[itr->first]->iBidSize || _vContractQuoteDatas[itr->first]->iPrevAskSize != _vContractQuoteDatas[itr->first]->iAskSize)
                 {
-                    dWeightedMidInTicks = (double)(_vContractQuoteDatas[itr->first]->iBestAskInTicks + _vContractQuoteDatas[itr->first]->iBestBidInTicks) / 2;
-                }
-                else
-                {
-                    if(_vContractQuoteDatas[itr->first]->iBestAskInTicks - _vContractQuoteDatas[itr->first]->iBestBidInTicks != 1 || (_vContractQuoteDatas[itr->first]->iBidSize + _vContractQuoteDatas[itr->first]->iAskSize == 0))
+                    double dWeightedMidInTicks;
+                    if(_vContractQuoteDatas[itr->first]->eInstrumentType == KO_FX)
                     {
                         dWeightedMidInTicks = (double)(_vContractQuoteDatas[itr->first]->iBestAskInTicks + _vContractQuoteDatas[itr->first]->iBestBidInTicks) / 2;
                     }
                     else
                     {
-                        dWeightedMidInTicks = (double)_vContractQuoteDatas[itr->first]->iBestBidInTicks + (double)_vContractQuoteDatas[itr->first]->iBidSize / (double)(_vContractQuoteDatas[itr->first]->iBidSize + _vContractQuoteDatas[itr->first]->iAskSize);
+                        if(_vContractQuoteDatas[itr->first]->iBestAskInTicks - _vContractQuoteDatas[itr->first]->iBestBidInTicks != 1 || (_vContractQuoteDatas[itr->first]->iBidSize + _vContractQuoteDatas[itr->first]->iAskSize == 0))
+                        {
+                            dWeightedMidInTicks = (double)(_vContractQuoteDatas[itr->first]->iBestAskInTicks + _vContractQuoteDatas[itr->first]->iBestBidInTicks) / 2;
+                        }
+                        else
+                        {
+                            dWeightedMidInTicks = (double)_vContractQuoteDatas[itr->first]->iBestBidInTicks + (double)_vContractQuoteDatas[itr->first]->iBidSize / (double)(_vContractQuoteDatas[itr->first]->iBidSize + _vContractQuoteDatas[itr->first]->iAskSize);
+                        }
                     }
-                }
 
-                _vContractQuoteDatas[itr->first]->dWeightedMidInTicks = dWeightedMidInTicks;
-                _vContractQuoteDatas[itr->first]->dWeightedMid = dWeightedMidInTicks * _vContractQuoteDatas[itr->first]->dTickSize;
-                newPriceUpdate(itr->first);
+                    _vContractQuoteDatas[itr->first]->dWeightedMidInTicks = dWeightedMidInTicks;
+                    _vContractQuoteDatas[itr->first]->dWeightedMid = dWeightedMidInTicks * _vContractQuoteDatas[itr->first]->dTickSize;
+                    newPriceUpdate(itr->first);
+                }
             }
         }
     }
@@ -2399,6 +2405,77 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                                 _cSubBookMarketDataLogger << cgetCurrentTime().igetPrintable()
                                                           << "|Ignoring price update from forbidden LP " << sECN << "\n";
                             }
+                        }
+                    }
+
+                    if(_vContractQuoteDatas[itr->first]->sProduct.find("USD") != std::string::npos)
+                    {
+                        if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false)
+                        {
+                            if(subQuoteItr->iBestBidInTicks > iCombBestBidInTicks)
+                            {
+                                iCombBestBidInTicks = subQuoteItr->iBestBidInTicks;
+                                dCombBestBid = subQuoteItr->dBestBid;
+                                iCombBidSize = subQuoteItr->iBidSize;
+                            }
+                            else if(subQuoteItr->iBestBidInTicks == iCombBestBidInTicks)
+                            {
+                                iCombBidSize = iCombBidSize + subQuoteItr->iBidSize;
+                            }
+
+                            if(subQuoteItr->iBestAskInTicks < iCombBestAskInTicks)
+                            {
+                                iCombBestAskInTicks = subQuoteItr->iBestAskInTicks;
+                                dCombBestAsk = subQuoteItr->dBestAsk;
+                                iCombAskSize = subQuoteItr->iAskSize;
+                            }
+                            else if(subQuoteItr->iBestAskInTicks == iCombBestAskInTicks)
+                            {
+                                iCombAskSize = iCombAskSize + subQuoteItr->iAskSize;
+                            }
+                        }
+                    } 
+                }
+
+                if(_vContractQuoteDatas[itr->first]->sProduct.find("USD") != std::string::npos)
+                {
+                    _vContractQuoteDatas[itr->first]->iPrevBidInTicks = _vContractQuoteDatas[itr->first]->iBestBidInTicks;
+                    _vContractQuoteDatas[itr->first]->iPrevAskInTicks = _vContractQuoteDatas[itr->first]->iBestAskInTicks;
+                    _vContractQuoteDatas[itr->first]->iPrevBidSize = _vContractQuoteDatas[itr->first]->iBidSize;
+                    _vContractQuoteDatas[itr->first]->iPrevAskSize = _vContractQuoteDatas[itr->first]->iAskSize;
+
+                    _vContractQuoteDatas[itr->first]->dBestBid = dCombBestBid;
+                    _vContractQuoteDatas[itr->first]->iBestBidInTicks = iCombBestBidInTicks;
+                    _vContractQuoteDatas[itr->first]->iBidSize = iCombBidSize;
+
+                    _vContractQuoteDatas[itr->first]->dBestAsk = dCombBestAsk;
+                    _vContractQuoteDatas[itr->first]->iBestAskInTicks = iCombBestAskInTicks;
+                    _vContractQuoteDatas[itr->first]->iAskSize = iCombAskSize;
+
+                    if(_vContractQuoteDatas[itr->first]->iBidSize != 0 && _vContractQuoteDatas[itr->first]->iAskSize != 0)
+                    {
+                        if(_vContractQuoteDatas[itr->first]->iPrevBidInTicks != _vContractQuoteDatas[itr->first]->iBestBidInTicks || _vContractQuoteDatas[itr->first]->iPrevAskInTicks != _vContractQuoteDatas[itr->first]->iBestAskInTicks || _vContractQuoteDatas[itr->first]->iPrevBidSize != _vContractQuoteDatas[itr->first]->iBidSize || _vContractQuoteDatas[itr->first]->iPrevAskSize != _vContractQuoteDatas[itr->first]->iAskSize)
+                        {
+                            double dWeightedMidInTicks;
+                            if(_vContractQuoteDatas[itr->first]->eInstrumentType == KO_FX)
+                            {
+                                dWeightedMidInTicks = (double)(_vContractQuoteDatas[itr->first]->iBestAskInTicks + _vContractQuoteDatas[itr->first]->iBestBidInTicks) / 2;
+                            }
+                            else
+                            {
+                                if(_vContractQuoteDatas[itr->first]->iBestAskInTicks - _vContractQuoteDatas[itr->first]->iBestBidInTicks != 1 || (_vContractQuoteDatas[itr->first]->iBidSize + _vContractQuoteDatas[itr->first]->iAskSize == 0))
+                                {
+                                    dWeightedMidInTicks = (double)(_vContractQuoteDatas[itr->first]->iBestAskInTicks + _vContractQuoteDatas[itr->first]->iBestBidInTicks) / 2;
+                                }
+                                else
+                                {
+                                    dWeightedMidInTicks = (double)_vContractQuoteDatas[itr->first]->iBestBidInTicks + (double)_vContractQuoteDatas[itr->first]->iBidSize / (double)(_vContractQuoteDatas[itr->first]->iBidSize + _vContractQuoteDatas[itr->first]->iAskSize);
+                                }
+                            }
+
+                            _vContractQuoteDatas[itr->first]->dWeightedMidInTicks = dWeightedMidInTicks;
+                            _vContractQuoteDatas[itr->first]->dWeightedMid = dWeightedMidInTicks * _vContractQuoteDatas[itr->first]->dTickSize;
+                            newPriceUpdate(itr->first);
                         }
                     }
                 }
