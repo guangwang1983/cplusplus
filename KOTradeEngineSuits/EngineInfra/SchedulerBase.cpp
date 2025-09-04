@@ -16,6 +16,7 @@
 #include "../slrd/SLRD.h"
 #include "../DataPrinter/DataPrinter.h"
 #include "../DataRecorder/DataRecorder.h"
+#include "../TriangulationDummy/TriangulationDummy.h"
 
 #include <boost/math/special_functions/round.hpp>
 
@@ -722,6 +723,10 @@ void SchedulerBase::registerTradeEngines()
                 else if(sEngineType.compare("SLRD") == 0)
                 {
                     pNewTradeEngine.reset(new SLRD(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType));
+                }
+                else if(sEngineType.compare("TriangulationDummy") == 0)
+                {
+                    pNewTradeEngine.reset(new TriangulationDummy(sEngineRunTimePath, sEngineSlotName, cTradingStartTime, cTradingEndTime, this, _cSchedulerCfg.sDate, _sSimType, _cSlotFirstWakeupCallTime));
                 }
                 else
                 {

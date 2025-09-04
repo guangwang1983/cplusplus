@@ -516,7 +516,7 @@ void TradeSignalMerger::aggregateAndSend(const string& sProduct)
         cStringStream << "Matching order internally " << iInternalMatchedQty << " lots.";
         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream.str());
     }
- 
+
     if(abs(iTotalShortWorkingQty) == abs(iTotalLongWorkingQty) && iTotalShortWorkingQty != 0)
     {
         fullyFillAllOrders(vBuyingSlotItrs);
@@ -531,6 +531,105 @@ void TradeSignalMerger::aggregateAndSend(const string& sProduct)
     {
         fullyFillAllOrders(vSellingSlotItrs);
         prorataFillAllOrders(vBuyingSlotItrs, -1 * iTotalShortWorkingQty);
+    }
+
+    long iTotalWorkingQty = iTotalShortWorkingQty + iTotalLongWorkingQty;
+    long iPendingTriQty = _mProductPendingTriFillQty[sProduct] * -1;
+
+    if(iTotalWorkingQty * iPendingTriQty > 0)
+    {
+        long iMatchedQty = 0;
+
+        if(abs(iPendingTriQty) > abs(iTotalWorkingQty))
+        {
+            iMatchedQty = iTotalWorkingQty;
+
+            iPendingTriQty = iPendingTriQty - iTotalWorkingQty;
+
+            if(iTotalWorkingQty > 0)
+            {
+                stringstream cStringStream1;
+                cStringStream1 << "Fully fill all buy orders";
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+
+                fullyFillAllOrders(vBuyingSlotItrs);
+            }
+            else
+            {
+                stringstream cStringStream1;
+                cStringStream1 << "Fully fill all sell orders";
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+
+                fullyFillAllOrders(vSellingSlotItrs);
+            }
+        }
+        else if(abs(iPendingTriQty) < abs(iTotalWorkingQty))
+        {
+            iMatchedQty = iPendingTriQty;
+
+            iPendingTriQty = 0;
+            if(iTotalWorkingQty > 0)
+            {
+                stringstream cStringStream1;
+                cStringStream1 << "Partial fill all buy orders " << iMatchedQty << " lots";
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+
+                prorataFillAllOrders(vBuyingSlotItrs, iPendingTriQty); 
+            }
+            else
+            {
+                stringstream cStringStream1;
+                cStringStream1 << "Partial fill all sell orders " << iMatchedQty << " lots";
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+
+                prorataFillAllOrders(vSellingSlotItrs, iPendingTriQty); 
+            }
+        }
+        else if(abs(iPendingTriQty) == abs(iTotalWorkingQty))
+        {
+            iMatchedQty = iPendingTriQty;
+
+            iPendingTriQty = 0;
+            if(iTotalWorkingQty > 0)
+            {
+                stringstream cStringStream1;
+                cStringStream1 << "Fully fill all buy orders";
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+
+                fullyFillAllOrders(vBuyingSlotItrs); 
+            }
+            else
+            {
+                stringstream cStringStream1;
+                cStringStream1 << "Fully fill all sell orders";
+                ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+
+                fullyFillAllOrders(vSellingSlotItrs); 
+            }
+        }
+
+        _mProductPendingTriFillQty[sProduct] = iPendingTriQty * -1;
+
+        if(iMatchedQty != 0)
+        {    
+            stringstream cStringStream;
+            cStringStream << "Matching against triangultion fill " << iMatchedQty << " lots.";
+            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream.str());
+
+            stringstream cStringStream1;
+            cStringStream1 << "New Pending Tri Fill qty is " << _mProductPendingTriFillQty[sProduct];
+            ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+
+            double dMatchedPrice = _vTotalTrades.back().dPrice;
+
+            _vTotalTrades.push_back(Trade());
+            _vTotalTrades.back().cTradeTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime();
+            _vTotalTrades.back().sProduct = sProduct;
+            _vTotalTrades.back().iQty = iMatchedQty;
+            _vTotalTrades.back().dPrice = dMatchedPrice;
+            _vTotalTrades.back().eInstrumentType = KO_FX;
+            _vTotalTrades.back().eTradeType = Trade::KO_TRI;
+        }
     }
 
     // send order to executor 
@@ -559,8 +658,6 @@ void TradeSignalMerger::addPendingTriFillQty(const string& sProduct, int iQty, d
     _vTotalTrades.back().dPrice = dPrice;
     _vTotalTrades.back().eInstrumentType = KO_FX;
     _vTotalTrades.back().eTradeType = Trade::KO_INTERNAL;
-
-cerr << "New Trade: " << sProduct << ";" << iQty << ";" << dPrice << ";INTERNAL\n";
 
     stringstream cStringStream1;
     cStringStream1 << "Adding " << iQty << " to pending tri fill qty";
@@ -608,8 +705,6 @@ void TradeSignalMerger::onFill(const string& sProduct, int iQty, double dPrice, 
         _vTotalTrades.back().dPrice = dPrice;
         _vTotalTrades.back().eInstrumentType = eInstrumentType;
         _vTotalTrades.back().eTradeType = Trade::KO_TRI;
-
-cerr << "New Trade: " << sProduct << ";" << iAllocatedQty << ";" << dPrice << ";TRI\n";
     }
 
     stringstream cStringStream1;
@@ -628,13 +723,11 @@ cerr << "New Trade: " << sProduct << ";" << iAllocatedQty << ";" << dPrice << ";
         if(bIsInteranlFill == true)
         {
             _vTotalTrades.back().eTradeType = Trade::KO_INTERNAL;
-cerr << "New Trade: " << sProduct << ";" << iQty << ";" << dPrice << ";INTERNAL\n";
             _mProductTheoVolume[sProduct] = _mProductTheoVolume[sProduct] + abs(iQty);
         }
         else
         {
             _vTotalTrades.back().eTradeType = Trade::KO_PAPER;
-cerr << "New Trade: " << sProduct << ";" << iQty << ";" << dPrice << ";PAPER\n";
             _mProductTheoVolume[sProduct] = _mProductTheoVolume[sProduct] + abs(iQty);
             _mProductPaperVolume[sProduct] = _mProductPaperVolume[sProduct] + abs(iQty);
         }
