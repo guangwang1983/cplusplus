@@ -127,6 +127,7 @@ public:
     void sortTimeEvent();
 
     void addNewWakeupCall(KOEpochTime cCallTime, TimerCallbackInterface* pTarget);
+    void addNewWakeupUSDCall(KOEpochTime cCallTime, TimerCallbackInterface* pTarget);
     void addNewFigureCall(TradeEngineBase* pTargetEngine, FigureCallPtr pNewFigureCall);
     void addNewEngineCall(TradeEngineBase* pTargetEngine, EngineEvent::EngineEventType eEventType, KOEpochTime cCallTime);
 

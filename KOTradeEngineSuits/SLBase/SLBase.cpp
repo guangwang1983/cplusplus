@@ -255,12 +255,26 @@ void SLBase::dayInit()
         {
             for(int j = 0; j < 10; j++)
             {
-                _pScheduler->addNewWakeupCall(cEngineActualStartTime + KOEpochTime(i, j*100000), this);
+                if(vContractQuoteDatas[0]->sProduct.find("USD") != std::string::npos)
+                {
+                    _pScheduler->addNewWakeupUSDCall(cEngineActualStartTime + KOEpochTime(i, j*100000), this);
+                }
+                else
+                {
+                    _pScheduler->addNewWakeupCall(cEngineActualStartTime + KOEpochTime(i, j*100000), this);
+                }
             }
         }
         else
         {
-            _pScheduler->addNewWakeupCall(cEngineActualStartTime + KOEpochTime(i,0), this);
+            if(vContractQuoteDatas[0]->sProduct.find("USD") != std::string::npos)
+            {
+                _pScheduler->addNewWakeupUSDCall(cEngineActualStartTime + KOEpochTime(i,0), this);
+            }
+            else
+            {
+                _pScheduler->addNewWakeupCall(cEngineActualStartTime + KOEpochTime(i,0), this);
+            }
         }
     }
 }

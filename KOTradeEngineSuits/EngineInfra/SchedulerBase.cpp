@@ -6,6 +6,7 @@
 #include "ContractAccount.h"
 #include "SystemClock.h"
 #include "WakeupEvent.h"
+#include "WakeupUSDEvent.h"
 #include "FigureEvent.h"
 #include "EngineEvent.h"
 #include "../slsl/SLSL.h"
@@ -2671,6 +2672,15 @@ void SchedulerBase::addNewWakeupCall(KOEpochTime cCallTime, TimerCallbackInterfa
     if(cCallTime > SystemClock::GetInstance()->cgetCurrentKOEpochTime())
     {
         WakeupEvent* pNewWakeupCall = new WakeupEvent(pTarget, cCallTime);
+        _vStaticTimeEventQueue.push_back(pNewWakeupCall);
+    }
+}
+
+void SchedulerBase::addNewWakeupUSDCall(KOEpochTime cCallTime, TimerCallbackInterface* pTarget)
+{
+    if(cCallTime > SystemClock::GetInstance()->cgetCurrentKOEpochTime())
+    {
+        WakeupUSDEvent* pNewWakeupCall = new WakeupUSDEvent(pTarget, cCallTime);
         _vStaticTimeEventQueue.push_back(pNewWakeupCall);
     }
 }

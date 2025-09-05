@@ -40,7 +40,14 @@ void TriangulationDummy::dayInit()
 
     for(int i = 0; i < cEngineLiveDuration.sec();i++)
     {
-        _pScheduler->addNewWakeupCall(cEngineActualStartTime + KOEpochTime(i,0), this);
+        if(vContractQuoteDatas[0]->sProduct.find("USD") != std::string::npos)
+        {
+            _pScheduler->addNewWakeupUSDCall(cEngineActualStartTime + KOEpochTime(i,0), this);
+        }
+        else
+        {
+            _pScheduler->addNewWakeupCall(cEngineActualStartTime + KOEpochTime(i,0), this);
+        }
     }
 }
 

@@ -16,6 +16,7 @@ public:
 		FigureEvent,
 		EngineEvent,
 		WakeupEvent,
+        WakeupUSDEvent,
 		DefaultEvent
 	};
 
