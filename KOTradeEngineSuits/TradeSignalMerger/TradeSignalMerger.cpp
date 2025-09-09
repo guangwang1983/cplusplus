@@ -619,16 +619,6 @@ void TradeSignalMerger::aggregateAndSend(const string& sProduct)
             stringstream cStringStream1;
             cStringStream1 << "New Pending Tri Fill qty is " << _mProductPendingTriFillQty[sProduct];
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
-
-            double dMatchedPrice = _vTotalTrades.back().dPrice;
-
-            _vTotalTrades.push_back(Trade());
-            _vTotalTrades.back().cTradeTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime();
-            _vTotalTrades.back().sProduct = sProduct;
-            _vTotalTrades.back().iQty = iMatchedQty;
-            _vTotalTrades.back().dPrice = dMatchedPrice;
-            _vTotalTrades.back().eInstrumentType = KO_FX;
-            _vTotalTrades.back().eTradeType = Trade::KO_TRI;
         }
     }
 
