@@ -43,12 +43,12 @@ struct LP
 
 bool compareLPsAsk(LP LP1, LP LP2)
 {
-    return (LP1.iPriceInTicks < LP2.iPriceInTicks);
+    return (LP1.dPrice < LP2.dPrice);
 }
 
 bool compareLPsBid(LP LP1, LP LP2)
 {
-    return (LP1.iPriceInTicks > LP2.iPriceInTicks);
+    return (LP1.dPrice > LP2.dPrice);
 }
 
 QuickFixSchedulerFXMultiBook::QuickFixSchedulerFXMultiBook(SchedulerConfig &cfg, bool bIsLiveTrading)
@@ -660,7 +660,7 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
         {
             stringstream cStringStream;
             cStringStream.precision(10);
-            cStringStream << "IOC Market Snapshot:" << _vContractQuoteDatas[iProductIdx]->iBidSize << "|" << _vContractQuoteDatas[iProductIdx]->iBestBidInTicks << "|" << _vContractQuoteDatas[iProductIdx]->iBestAskInTicks << "|" << _vContractQuoteDatas[iProductIdx]->iAskSize;
+            cStringStream << "IOC Market Snapshot:" << _vContractQuoteDatas[iProductIdx]->iBidSize << "|" << _vContractQuoteDatas[iProductIdx]->dBestBid << "|" << _vContractQuoteDatas[iProductIdx]->dBestAsk << "|" << _vContractQuoteDatas[iProductIdx]->iAskSize;
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
         }
     }
@@ -694,11 +694,12 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                     {
                         stringstream cStringStreamPrice;
                         cStringStreamPrice.precision(10);
-                        cStringStreamPrice << sECN << " Snapshot:" << (*subQuoteItr).iBidSize << "|" << (*subQuoteItr).iBestBidInTicks << "|" << (*subQuoteItr).iBestAskInTicks << "|" << (*subQuoteItr).iAskSize;
+                        cStringStreamPrice << sECN << " Snapshot:" << (*subQuoteItr).iBidSize << "|" << (*subQuoteItr).dBestBid << "|" << (*subQuoteItr).dBestAsk << "|" << (*subQuoteItr).iAskSize;
                         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", (*subQuoteItr).sProduct, cStringStreamPrice.str());
 
                         vLPs.push_back(LP());
                         vLPs.back().iLPIdx = index;
+                        vLPs.back().dPrice = (*subQuoteItr).dBestAsk;
                         vLPs.back().iPriceInTicks = (*subQuoteItr).iBestAskInTicks;
                         vLPs.back().iSize = (*subQuoteItr).iAskSize;
                         vLPs.back().sLPProductCode = (*subQuoteItr).sTBProduct;
@@ -857,6 +858,12 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                                     dUSDSaving = (dNextBestPrice - dOrderPrice) * abs(iOrderSize) * _vContractQuoteDatas[iProductIdx]->dRateToDollar;
                                     dExtraFee = abs((double)iBackOrderSize) * _vContractQuoteDatas[LPItr->iBackIdx]->dBestBid * _vContractQuoteDatas[iProductIdx]->dTradingFee;
                                     dTotalSave = dUSDSaving - dExtraFee;
+
+stringstream cStringStream;
+std::setprecision(7);
+cStringStream << "dOrderPrice: " << dOrderPrice << " dNextBestPrice " << dNextBestPrice << " dUSDSaving " << dUSDSaving;
+ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+std::setprecision(5);
                                 }
 
                                 {
@@ -933,7 +940,7 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                     {
                         stringstream cStringStreamPrice;
                         cStringStreamPrice.precision(10);
-                        cStringStreamPrice << sECN << " Snapshot:" << subQuoteItr->iBidSize << "|" << subQuoteItr->iBestBidInTicks << "|" << subQuoteItr->iBestAskInTicks << "|" << subQuoteItr->iAskSize;
+                        cStringStreamPrice << sECN << " Snapshot:" << subQuoteItr->iBidSize << "|" << subQuoteItr->dBestBid << "|" << subQuoteItr->dBestAsk << "|" << subQuoteItr->iAskSize;
                         ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", (*subQuoteItr).sProduct, cStringStreamPrice.str());
 
                         vLPs.push_back(LP());
@@ -1097,6 +1104,12 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                                     dUSDSaving = (dOrderPrice - dNextBestPrice) * abs(iOrderSize) * _vContractQuoteDatas[iProductIdx]->dRateToDollar;
                                     dExtraFee = abs((double)iBackOrderSize) * _vContractQuoteDatas[LPItr->iBackIdx]->dBestAsk * _vContractQuoteDatas[iProductIdx]->dTradingFee;
                                     dTotalSave = dUSDSaving - dExtraFee;
+
+stringstream cStringStream;
+std::setprecision(7);
+cStringStream << "dOrderPrice: " << dOrderPrice << " dNextBestPrice " << dNextBestPrice << " dUSDSaving " << dUSDSaving;
+ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+std::setprecision(5);
                                 }
 
                                 {
