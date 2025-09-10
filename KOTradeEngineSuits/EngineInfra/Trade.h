@@ -17,6 +17,7 @@ struct Trade
         KO_PAPER,
         KO_INTERNAL,
         KO_TRI,
+        KO_MATCHED,
     };                       
 
 	KOEpochTime                 cTradeTime;

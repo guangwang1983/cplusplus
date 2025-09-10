@@ -86,6 +86,11 @@ void TradeSignalMerger::writeEoDResult(const string& sResultPath, const string& 
             {
                 fsTransactionsFile << "TRI";
             }
+            else if(itr->eTradeType == Trade::KO_MATCHED)
+            {
+                fsTransactionsFile << "MATCHED";
+            }
+
 
             fsTransactionsFile << "\n";
 
@@ -97,7 +102,7 @@ void TradeSignalMerger::writeEoDResult(const string& sResultPath, const string& 
             double dNewFee;
             if(itr->eInstrumentType == KO_FX)
             {
-                if(itr->eTradeType == Trade::KO_INTERNAL)
+                if(itr->eTradeType == Trade::KO_INTERNAL || itr->eTradeType == Trade::KO_MATCHED)
                 {
                     dNewFee = 0;
                 }
@@ -574,7 +579,7 @@ void TradeSignalMerger::aggregateAndSend(const string& sProduct)
                 cStringStream1 << "Partial fill all buy orders " << iMatchedQty << " lots";
                 ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
 
-                prorataFillAllOrders(vBuyingSlotItrs, iPendingTriQty); 
+                prorataFillAllOrders(vBuyingSlotItrs, iMatchedQty); 
             }
             else
             {
@@ -582,7 +587,7 @@ void TradeSignalMerger::aggregateAndSend(const string& sProduct)
                 cStringStream1 << "Partial fill all sell orders " << iMatchedQty << " lots";
                 ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
 
-                prorataFillAllOrders(vSellingSlotItrs, iPendingTriQty); 
+                prorataFillAllOrders(vSellingSlotItrs, iMatchedQty); 
             }
         }
         else if(abs(iPendingTriQty) == abs(iTotalWorkingQty))
@@ -619,6 +624,32 @@ void TradeSignalMerger::aggregateAndSend(const string& sProduct)
             stringstream cStringStream1;
             cStringStream1 << "New Pending Tri Fill qty is " << _mProductPendingTriFillQty[sProduct];
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+
+            double dMatchedPrice = 0;
+            for(vector<Trade>::reverse_iterator itr = _vTotalTrades.rbegin();itr != _vTotalTrades.rend();itr++)
+            {
+                if(itr->sProduct == sProduct)
+                {
+                    dMatchedPrice = itr->dPrice;
+                    break;
+                }
+            }
+
+            _vTotalTrades.push_back(Trade());
+            _vTotalTrades.back().cTradeTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime();
+            _vTotalTrades.back().sProduct = sProduct;
+            _vTotalTrades.back().iQty = iMatchedQty * -1;
+            _vTotalTrades.back().dPrice = dMatchedPrice;
+            _vTotalTrades.back().eInstrumentType = KO_FX;
+            _vTotalTrades.back().eTradeType = Trade::KO_INTERNAL;
+
+            _vTotalTrades.push_back(Trade());
+            _vTotalTrades.back().cTradeTime = SystemClock::GetInstance()->cgetCurrentKOEpochTime();
+            _vTotalTrades.back().sProduct = sProduct;
+            _vTotalTrades.back().iQty = iMatchedQty;
+            _vTotalTrades.back().dPrice = dMatchedPrice;
+            _vTotalTrades.back().eInstrumentType = KO_FX;
+            _vTotalTrades.back().eTradeType = Trade::KO_MATCHED;
         }
     }
 
