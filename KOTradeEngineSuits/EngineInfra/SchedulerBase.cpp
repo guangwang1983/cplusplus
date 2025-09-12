@@ -337,12 +337,12 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
                         int iProductStaleTime = 3600;
                         if(_vContractQuoteDatas[i]->sRoot.compare("TONA") == 0)
                         {
-                            iProductStaleTime = 7200;
+                            iProductStaleTime = 10800;
                         }
 
                         if((SystemClock::GetInstance()->cgetCurrentKOEpochTime() - _vContractQuoteDatas[i]->cLastUpdateTime).sec() > iProductStaleTime)
                         {
-                            int iProductStaleTimeHour = iProductStaleTime / 2;
+                            int iProductStaleTimeHour = iProductStaleTime / 3600;
 
                             _vContractQuoteDatas[i]->bStalenessErrorTriggered = true;
 
@@ -403,7 +403,7 @@ void SchedulerBase::checkProductPriceStatus(KOEpochTime cCallTime)
         int iExchangeStaleTime = 900;
         if(itr->first.compare("XOSX") == 0)
         {
-            iExchangeStaleTime = 1800;
+            iExchangeStaleTime = 3600;
         }
 
         if(mExchangeOpen[itr->first] == true)

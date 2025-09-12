@@ -850,14 +850,10 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
 
                                 // buy order
                                 double dUSDSaving = 100000;
-                                double dExtraFee = 0;
-                                double dTotalSave = 100000;
                                 if(LPItr + 1 != vLPs.end())
                                 {
                                     double dNextBestPrice = (LPItr + 1)->dPrice;
                                     dUSDSaving = (dNextBestPrice - dOrderPrice) * abs(iOrderSize) * _vContractQuoteDatas[iProductIdx]->dRateToDollar;
-                                    dExtraFee = abs((double)iBackOrderSize) * _vContractQuoteDatas[LPItr->iBackIdx]->dBestBid * _vContractQuoteDatas[iProductIdx]->dTradingFee;
-                                    dTotalSave = dUSDSaving - dExtraFee;
 
 stringstream cStringStream;
 std::setprecision(7);
@@ -902,7 +898,7 @@ std::setprecision(5);
 
                                 cStringStream.str("");
                                 cStringStream.clear();
-                                cStringStream << "Triangulation Cross Fill qty: " << iOrderSize << " price: " << std::setprecision(6) << dOrderPrice << std::setprecision(5) <<" saving: " << dTotalSave << " gross USD saving: " << dUSDSaving << " extra fee: " << dExtraFee;
+                                cStringStream << "Triangulation Cross Fill qty: " << iOrderSize << " price: " << std::setprecision(6) << dOrderPrice << std::setprecision(5) <<" saving: " << dUSDSaving;
                                 ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
                             }
                         }
@@ -1096,14 +1092,10 @@ std::setprecision(5);
 
                                 // sell order
                                 double dUSDSaving = 100000;
-                                double dExtraFee = 0;
-                                double dTotalSave = 100000;
                                 if(LPItr + 1 != vLPs.end())
                                 {
                                     double dNextBestPrice = (LPItr + 1)->dPrice;
                                     dUSDSaving = (dOrderPrice - dNextBestPrice) * abs(iOrderSize) * _vContractQuoteDatas[iProductIdx]->dRateToDollar;
-                                    dExtraFee = abs((double)iBackOrderSize) * _vContractQuoteDatas[LPItr->iBackIdx]->dBestAsk * _vContractQuoteDatas[iProductIdx]->dTradingFee;
-                                    dTotalSave = dUSDSaving - dExtraFee;
 
 stringstream cStringStream;
 std::setprecision(7);
@@ -1148,7 +1140,7 @@ std::setprecision(5);
 
                                 cStringStream.str("");
                                 cStringStream.clear();
-                                cStringStream << "Triangulation Cross Fill qty: " << iOrderSize << " price: " << std::setprecision(6) << dOrderPrice << std::setprecision(5) << " saving: " << dTotalSave << " gross USD saving: " << dUSDSaving << " extra fee: " << dExtraFee;
+                                cStringStream << "Triangulation Cross Fill qty: " << iOrderSize << " price: " << std::setprecision(6) << dOrderPrice << std::setprecision(5) << " saving: " << dUSDSaving;
                                 ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
                             }
                         }
@@ -1355,7 +1347,12 @@ void QuickFixSchedulerFXMultiBook::calculateCombinedFXBook()
                 if(subQuoteItr->bTriFrontInverted == false && subQuoteItr->bTriBackInverted == false)
                 {
                     subQuoteItr->dBestBid = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestBid / _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestAsk;
+                    double ExtraFee = _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestAsk * _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dTradingFee;
+                    subQuoteItr->dBestBid = subQuoteItr->dBestBid - ExtraFee;
+
                     subQuoteItr->dBestAsk = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestAsk / _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestBid;
+                    ExtraFee = _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dBestBid * _vContractQuoteDatas[subQuoteItr->iTriBackIdx]->dTradingFee;
+                    subQuoteItr->dBestAsk = subQuoteItr->dBestAsk + ExtraFee;
 
                     long iFrontBidConsideration = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestBid * _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iBidSize;
                     long iFrontAskConsideration = _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->dBestAsk * _vContractQuoteDatas[subQuoteItr->iTriFrontIdx]->iAskSize;

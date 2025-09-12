@@ -578,6 +578,7 @@ void TradeSignalMerger::aggregateAndSend(const string& sProduct)
                 stringstream cStringStream1;
                 cStringStream1 << "Partial fill all buy orders " << iMatchedQty << " lots";
                 ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", sProduct, cStringStream1.str());
 
                 prorataFillAllOrders(vBuyingSlotItrs, iMatchedQty); 
             }
@@ -586,6 +587,7 @@ void TradeSignalMerger::aggregateAndSend(const string& sProduct)
                 stringstream cStringStream1;
                 cStringStream1 << "Partial fill all sell orders " << iMatchedQty << " lots";
                 ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", sProduct, cStringStream1.str());
+                ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", sProduct, cStringStream1.str());
 
                 prorataFillAllOrders(vSellingSlotItrs, iMatchedQty); 
             }
