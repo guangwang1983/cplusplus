@@ -855,11 +855,11 @@ void QuickFixSchedulerFXMultiBook::submitOrderBestPriceMultiBook(unsigned int iP
                                     double dNextBestPrice = (LPItr + 1)->dPrice;
                                     dUSDSaving = (dNextBestPrice - dOrderPrice) * abs(iOrderSize) * _vContractQuoteDatas[iProductIdx]->dRateToDollar;
 
-stringstream cStringStream;
-std::setprecision(7);
-cStringStream << "dOrderPrice: " << dOrderPrice << " dNextBestPrice " << dNextBestPrice << " dUSDSaving " << dUSDSaving;
-ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
-std::setprecision(5);
+                                    stringstream cStringStream;
+                                    std::setprecision(7);
+                                    cStringStream << "dOrderPrice: " << dOrderPrice << " dNextBestPrice " << dNextBestPrice << " dUSDSaving " << dUSDSaving;
+                                    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                    std::setprecision(5);
                                 }
 
                                 {
