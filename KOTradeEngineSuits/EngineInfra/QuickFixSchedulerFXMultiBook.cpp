@@ -2212,7 +2212,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
                     if(_vLastOrderError[iProductIdx].find(sRejectReason) == std::string::npos)
                     {
                         _vLastOrderError[iProductIdx] = cStringStream.str();
-                        if(sRejectReason.find("Price Protection") == std::string::npos && sRejectReason.find("Market move") == std::string::npos && sRejectReason.find("last look") == std::string::npos && sRejectReason.find("outside Tolerance") == std::string::npos && sRejectReason.find("invalid rate") == std::string::npos && sRejectReason.find("Insufficient liquidity") == std::string::npos) 
+                        if(sRejectReason.find("Price Protection") == std::string::npos && sRejectReason.find("Market move") == std::string::npos && sRejectReason.find("last look") == std::string::npos && sRejectReason.find("outside Tolerance") == std::string::npos && sRejectReason.find("invalid rate") == std::string::npos && sRejectReason.find("Insufficient liquidity") == std::string::npos && sRejectReason.find("Liquidity not available") == std::string::npos) 
                         {
                             ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
                         }
@@ -2747,7 +2747,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
                     if(_vLastOrderError[iProductIdx].find(sText) == std::string::npos)
                     {
                         _vLastOrderError[iProductIdx] = cStringStream.str();
-                        if(sText.find("Price Protection") == std::string::npos && sText.find("Market move") == std::string::npos && sText.find("last look") == std::string::npos && sText.find("outside Tolerance") == std::string::npos && sText.find("invalid rate") == std::string::npos && sText.find("Insufficient liquidity") == std::string::npos)
+                        if(sText.find("Price Protection") == std::string::npos && sText.find("Market move") == std::string::npos && sText.find("last look") == std::string::npos && sText.find("outside Tolerance") == std::string::npos && sText.find("invalid rate") == std::string::npos && sText.find("Insufficient liquidity") == std::string::npos && sText.find("Liquidity not available") == std::string::npos)
                         {
                             ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
                         }
