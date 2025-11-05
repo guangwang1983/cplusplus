@@ -2128,7 +2128,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
 
                                     stringstream cStringStream;
                                     cStringStream << "More than 3 order rejects received from " << sExchange << ". Ignore LP.";
-                                    ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
+                                    ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _vContractQuoteDatas[iProductIdx]->sProduct, cStringStream.str());
                                 }
                             }
                         }
