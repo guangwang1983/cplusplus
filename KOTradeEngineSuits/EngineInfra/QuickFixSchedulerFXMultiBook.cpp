@@ -285,7 +285,7 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
                     }
                 }
 
-               if(pMarketDataSessionID == NULL)
+                if(pMarketDataSessionID == NULL)
                 {
                     stringstream cStringStream;
                     cStringStream << "Cannot find market data fix session for " << _vContractQuoteDatas[i]->sExchange;
@@ -1616,14 +1616,13 @@ void QuickFixSchedulerFXMultiBook::onLogout(const SessionID& cSessionID)
             {
                 if(_vMDSessions[i].bIsLoggedOn == true)
                 {
-                    updateQuoteDataSubscribed();
-
                     stringstream cStringStream;
                     cStringStream << "Disconnected from market data fix session " << sSenderCompID;
                     ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
                 }
 
                 _vMDSessions[i].bIsLoggedOn = false;
+                updateQuoteDataSubscribed();
                 stringstream cStringStream;
                 cStringStream << "Failed to log on to market data fix session " << sSenderCompID;
                 ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
@@ -1682,6 +1681,7 @@ void QuickFixSchedulerFXMultiBook::updateQuoteDataSubscribed()
                     pMarketDataSessionID = _vMDSessions[iMDSessionsIdx].pFixSessionID;
                     sSenderCompID = _vMDSessions[iMDSessionsIdx].sSenderCompID;
                     bIsLoggedOn = _vMDSessions[iMDSessionsIdx].bIsLoggedOn;
+
                     break;
                 }
             }
@@ -1691,6 +1691,7 @@ void QuickFixSchedulerFXMultiBook::updateQuoteDataSubscribed()
                 if(bIsLoggedOn == false)
                 {
                     _vContractQuoteDatas[i]->bDataSubscribed = false;
+                    _vContractQuoteDatas[i]->bDataSubscriptionPending = false;
                 }
             }
         }
@@ -1724,6 +1725,7 @@ void QuickFixSchedulerFXMultiBook::updateQuoteDataSubscribed()
                 if(bIsLoggedOn == false)
                 {
                     pSubProduct->bDataSubscribed = false;
+                    pSubProduct->bDataSubscriptionPending = false;
                 }
             }
         }
