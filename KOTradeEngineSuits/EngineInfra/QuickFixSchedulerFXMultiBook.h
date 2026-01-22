@@ -28,7 +28,7 @@ class QuickFixSchedulerFXMultiBook : public FIX::Application,
 {
 
 public:
-    QuickFixSchedulerFXMultiBook(SchedulerConfig &cfg, bool bIsLiveTrading);
+    QuickFixSchedulerFXMultiBook(SchedulerConfig &cfg, bool bIsLiveTrading, bool bIsRecorder);
     ~QuickFixSchedulerFXMultiBook();
 
     void init();
@@ -93,6 +93,7 @@ private:
     void removeDeletedOrder();
 
     bool _bIsLiveTrading;
+    bool _bIsRecorder;
     bool _bScheduleFinished;
 
     vector<SessionDetails> _vMDSessions;

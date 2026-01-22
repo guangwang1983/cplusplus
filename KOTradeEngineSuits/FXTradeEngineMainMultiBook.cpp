@@ -48,7 +48,14 @@ int main( int argc, char** argv )
     {
         sFixConfigFileName = cSchedulerConfig.sFixConfigFileName;
 
-        QuickFixSchedulerFXMultiBook cQuickFixScheduler(cSchedulerConfig, true);
+        bool bIsRecorder = false;
+
+        if(sConfigFilePath.find("Recorder") != string::npos)
+        {
+            bIsRecorder = true;
+        }
+
+        QuickFixSchedulerFXMultiBook cQuickFixScheduler(cSchedulerConfig, true, bIsRecorder);
 
         FIX::SessionSettings cFixSettings(sFixConfigFileName);
         FIX::FileStoreFactory cFixStoreFactory(cFixSettings);

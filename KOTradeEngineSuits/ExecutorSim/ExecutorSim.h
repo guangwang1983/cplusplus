@@ -109,7 +109,7 @@ public:
         FLAT_ALL_SHORT  //5
     };
 
-    ExecutorSim(const string& sProduct, long iSubmitLatency, long iAmendLatency, double dTickSize, const string& sDataFile, long iExpoLimit, const string& sDate, const string& sLogPath, bool bWriteLog, bool bIsLiquidator, bool bLogMarketData, bool bIOC, int iIOCSpreadWidthLimit, int iArtificialSpread);
+    ExecutorSim(const string& sProduct, long iSubmitLatency, long iAmendLatency, double dTickSize, const string& sDataFile, long iExpoLimit, const string& sDate, const string& sLogPath, bool bWriteLog, bool bIsLiquidator, bool bLogMarketData, bool bIOC, int iIOCSpreadWidthLimit, int iArtificialSpread, bool bIsLibSim);
     ~ExecutorSim();
 
     const string& sgetProduct();
@@ -170,6 +170,8 @@ private:
     bool _bIsTheo;
 
     int _iIOCSpreadWidthLimit;
+
+    bool _bIsLibSim;
 
     long _iSecondMsgLimit;
 

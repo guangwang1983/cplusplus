@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
             bIOC = true;
         }
 
-        ExecutorSim cExecutorSim(sDailyTradingContract, iSubmitLatency, iAmendLatency, dDailyTickSize, sDataFile, 999999999, sDate, sLogPath, bWriteLog, false, bLogMarketData, bIOC, iIOCSpreadWidthLimit, iArticifialSpread);
+        ExecutorSim cExecutorSim(sDailyTradingContract, iSubmitLatency, iAmendLatency, dDailyTickSize, sDataFile, 999999999, sDate, sLogPath, bWriteLog, false, bLogMarketData, bIOC, iIOCSpreadWidthLimit, iArticifialSpread, true);
         cExecutorSim.setTheoreticalSim(true);
 
         // load signals

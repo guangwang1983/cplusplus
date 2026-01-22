@@ -12,7 +12,7 @@ using namespace std;
 namespace KO
 {
 
-ExecutorSim::ExecutorSim(const string& sProduct, long iSubmitLatency, long iAmendLatency, double dTickSize, const string& sDataFile, long iExpoLimit, const string& sDate, const string& sLogPath, bool bWriteLog, bool bIsLiquidator, bool bLogMarketData, bool bIOC, int iIOCSpreadWidthLimit, int iArtificialSpread)
+ExecutorSim::ExecutorSim(const string& sProduct, long iSubmitLatency, long iAmendLatency, double dTickSize, const string& sDataFile, long iExpoLimit, const string& sDate, const string& sLogPath, bool bWriteLog, bool bIsLiquidator, bool bLogMarketData, bool bIOC, int iIOCSpreadWidthLimit, int iArtificialSpread, bool bIsLibSim)
 :_sProduct(sProduct),
  _pLoadedData(NULL),
  _iNumLoadedDataPoints(0),
@@ -30,6 +30,7 @@ ExecutorSim::ExecutorSim(const string& sProduct, long iSubmitLatency, long iAmen
 {
     _sDataFileName = sDataFile;
     _bIOC = bIOC;
+    _bIsLibSim = bIsLibSim;
     _iIOCSpreadWidthLimit = iIOCSpreadWidthLimit;
     _iArtificialSpread = iArtificialSpread;
 
@@ -155,7 +156,7 @@ bool ExecutorSim::bloadHDF5(long iDataSetIdx)
 
     if(bDataSetExists == true)
     {
-        //cerr << "DataSet " << iDataSetIdx << " loaded \n";
+_cLogger << "DataSet " << iDataSetIdx << " loaded \n";
         hsize_t cDim[1];
         DataSpace cDataSpace = cDataSet.getSpace();
         cDataSpace.getSimpleExtentDims(cDim);
@@ -996,16 +997,30 @@ void ExecutorSim::checkOrderCross(ExecutorSimOrder& cOrder, const GridData& cDat
 
         if(_bIOC == true)
         {
-            _cLogger << cDataPoint.iEpochTimeStamp << "|" <<  cDataPoint.iBidSize << "|" << cDataPoint.iBidInTicks << "|" << cDataPoint.iAskInTicks << "|" << cDataPoint.iAskSize << "|" << cDataPoint.iLastInTicks << "|" << cDataPoint.iTradeSize << "|" << cDataPoint.iAccumuTradeSize << "\n";
+            _cLogger << "check order crossed " << cDataPoint.iEpochTimeStamp << "|" <<  cDataPoint.iBidSize << "|" << cDataPoint.iBidInTicks << "|" << cDataPoint.iAskInTicks << "|" << cDataPoint.iAskSize << "|" << cDataPoint.iLastInTicks << "|" << cDataPoint.iTradeSize << "|" << cDataPoint.iAccumuTradeSize << "\n";
 
 
             if(abs(cOrder.iRemainQty) != 0)
             {
-                cOrder.iRemainQty = 0;
-                cOrder.eState = ExecutorSimOrder::INACTIVE;            
-                _iTotalOrdersInMarket = _iTotalOrdersInMarket - 1; 
+                long iRetrtySubmitTime = (cDataPoint.iEpochTimeStamp / 1000000 + 1) * 1000000;
 
-                _cLogger << "confirm IOC order delete for strategy " << cOrder.iPortfolioID << "\n";
+                if(_bIsLibSim == true)
+                {
+                    _cLogger << "confirm IOC order delete for strategy " << cOrder.iPortfolioID << ". Retry at " << iRetrtySubmitTime << "\n";
+
+                    cOrder.eState = ExecutorSimOrder::PENDING_SUBMIT_CREATION;
+                    cOrder.iRemainQty = 0;
+                    cOrder.iPriceInTicks = 0;
+                    cOrder.iConfirmTime = iRetrtySubmitTime;
+                }
+                else
+                {
+                    _cLogger << "confirm IOC order delete for strategy " << cOrder.iPortfolioID << "\n";
+
+                    cOrder.eState = ExecutorSimOrder::INACTIVE;
+                    cOrder.iRemainQty = 0;
+                    _iTotalOrdersInMarket = _iTotalOrdersInMarket - 1;
+                }
 
                 stringstream cStringStream;
                 cStringStream << "IOC Order cancel acked.";
@@ -1326,6 +1341,8 @@ long ExecutorSim::getOrderBestPrice(ExecutorSimOrder& cExecutorSimOrder, const G
     long iAdjustedAskInTicks = cDataPoint.iAskInTicks;
     long iAdjustedBidInTicks = cDataPoint.iBidInTicks;
 
+    _cLogger << "getOrderBestPrice " << cDataPoint.iEpochTimeStamp << "|" << iAdjustedBidInTicks << "|" << iAdjustedAskInTicks << "\n";
+
 /*
     if(cExecutorSimOrder.iMktAdjustQty != 0)
     { 
@@ -1505,7 +1522,10 @@ void ExecutorSim::applyTimeToOrders(long iCurrentEpochTime)
                     if(bMarketPriceValid == true)
                     {
                         orderItr->eState = ExecutorSimOrder::PENDING_CREATION;
+                        _cLogger << "iConfirmTime before adjust for latency " << orderItr->iConfirmTime << "\n";
+                        _cLogger  << "_iSubmitLatency " << _iSubmitLatency << "\n";
                         orderItr->iConfirmTime = orderItr->iConfirmTime + _iSubmitLatency;
+                        _cLogger << "iConfirmTime after adjust for latency " << orderItr->iConfirmTime << "\n";
 
                         orderItr->iPendingPriceInTicks = getOrderBestPrice(*orderItr, *_pLastDataPoint);
 
@@ -1617,7 +1637,8 @@ void ExecutorSim::newSignal(TradeSignal cTradeSignal, long iNextSignalTimeStamp)
                 for(;_iCurrentDataIdx < _iNumLoadedDataPoints;_iCurrentDataIdx++)
                 {
                     // release aggregated update
-//cerr << "iNextSignalTimeStamp is " << iNextSignalTimeStamp << "\n";
+_cLogger << "iNextSignalTimeStamp is " << iNextSignalTimeStamp << "\n";
+_cLogger << "data timestamp is " << _pLoadedData[_iCurrentDataIdx].iEpochTimeStamp << "\n";
                     //loop through data
                     if(iNextSignalTimeStamp != 0 && iNextSignalTimeStamp < _pLoadedData[_iCurrentDataIdx].iEpochTimeStamp)
                     {

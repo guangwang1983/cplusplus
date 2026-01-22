@@ -119,12 +119,12 @@ void KOScheduler::initExecutorSims()
 
     for(unsigned int i = 0; i < vProducts.size(); i ++)
     {
-        ExecutorSim* pNewExecutorSim = new ExecutorSim(vProducts[i], vSubmitLatencies[i],  vAmendLatencies[i], vTickSizes[i], vDataFiles[i], 1000000, _cSchedulerCfg.sDate, sLogPath, bWriteLog, false, bLogMarketData, bIOCs[i], iIOCSpreadWidthLimit[i], _pStaticDataHandler->iGetFXArticifialSpread(vProducts[i]));
+        ExecutorSim* pNewExecutorSim = new ExecutorSim(vProducts[i], vSubmitLatencies[i],  vAmendLatencies[i], vTickSizes[i], vDataFiles[i], 1000000, _cSchedulerCfg.sDate, sLogPath, bWriteLog, false, bLogMarketData, bIOCs[i], iIOCSpreadWidthLimit[i], _pStaticDataHandler->iGetFXArticifialSpread(vProducts[i]), false);
 
         _iPortfolioID = pNewExecutorSim->iaddPortfolio(NULL, NULL, this);
         _vSimExecutors.push_back(pNewExecutorSim);
 
-        ExecutorSim* pNewLiqExecutorSim = new ExecutorSim(vProducts[i], vSubmitLatencies[i], vAmendLatencies[i], vTickSizes[i], vDataFiles[i], 1000000, _cSchedulerCfg.sDate, sLogPath, bWriteLog, true, bLogMarketData, bIOCs[i], iIOCSpreadWidthLimit[i], _pStaticDataHandler->iGetFXArticifialSpread(vProducts[i]));
+        ExecutorSim* pNewLiqExecutorSim = new ExecutorSim(vProducts[i], vSubmitLatencies[i], vAmendLatencies[i], vTickSizes[i], vDataFiles[i], 1000000, _cSchedulerCfg.sDate, sLogPath, bWriteLog, true, bLogMarketData, bIOCs[i], iIOCSpreadWidthLimit[i], _pStaticDataHandler->iGetFXArticifialSpread(vProducts[i]), false);
 
         _iPortfolioID = pNewLiqExecutorSim->iaddPortfolio(NULL, NULL, this);
         _vLiqExecutors.push_back(pNewLiqExecutorSim);

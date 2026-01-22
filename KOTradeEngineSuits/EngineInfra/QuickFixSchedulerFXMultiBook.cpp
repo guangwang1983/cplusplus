@@ -51,10 +51,11 @@ bool compareLPsBid(LP LP1, LP LP2)
     return (LP1.dPrice > LP2.dPrice);
 }
 
-QuickFixSchedulerFXMultiBook::QuickFixSchedulerFXMultiBook(SchedulerConfig &cfg, bool bIsLiveTrading)
+QuickFixSchedulerFXMultiBook::QuickFixSchedulerFXMultiBook(SchedulerConfig &cfg, bool bIsLiveTrading, bool bIsRecorder)
 :SchedulerBase("Config", cfg)
 {
-    _bIsLiveTrading =  bIsLiveTrading;
+    _bIsLiveTrading = bIsLiveTrading;
+    _bIsRecorder = bIsRecorder;
     _bScheduleFinished = false;
 
     _iNumTimerCallsReceived = 0;
@@ -259,7 +260,39 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
                 }
                 else if(_vContractQuoteDatas[i]->sExchange == "XCME")
                 {
-                    sTBExchange = "CME";
+/*
+                    if(_bIsRecorder == true)
+                    {
+                        if(_cSchedulerCfg.vProducts[i].find("CL") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("GC") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("6E") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("6B") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("6C") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("6A") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("6J") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("6N") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("ES") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("ZB") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("ZN") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("ZF") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("ZT") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("SR3H") != std::string::npos ||
+                           _cSchedulerCfg.vProducts[i].find("SR3M") != std::string::npos)
+                        {
+                            sTBExchange = "_CME2_";
+                        }
+                        else
+                        {
+                            sTBExchange = "_CME_";
+                        }
+                    }
+                    else
+                    {
+*/
+                        sTBExchange = "CME";
+/*
+                    }
+*/
                 }
                 else if(_vContractQuoteDatas[i]->sExchange == "XEUR")
                 {
@@ -288,7 +321,7 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
                 if(pMarketDataSessionID == NULL)
                 {
                     stringstream cStringStream;
-                    cStringStream << "Cannot find market data fix session for " << _vContractQuoteDatas[i]->sExchange;
+                    cStringStream << "Cannot find market data fix session for " << _vContractQuoteDatas[i]->sExchange << " product " << _cSchedulerCfg.vProducts[i];
                     ErrorHandler::GetInstance()->newErrorMsg("0", "ALL", "ALL", cStringStream.str());
                 }
                 else
@@ -1511,8 +1544,11 @@ void QuickFixSchedulerFXMultiBook::onTimer()
     KOEpochTime cNewUpdateTime = cgetCurrentTime();
     checkOrderState(cNewUpdateTime);
 
-    // update all synthetic triangualtion cross prices and combined prices from all liquidity source first
-    calculateCombinedFXBook();
+    //  for trading engine update all synthetic triangualtion cross prices and combined prices from all liquidity source first
+    if(_bIsRecorder == false)
+    {
+        calculateCombinedFXBook();
+    }
 
     SchedulerBase::wakeup(cNewUpdateTime);
     processTimeEvents(cNewUpdateTime);
@@ -2214,7 +2250,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::ExecutionReport& cExec
                     if(_vLastOrderError[iProductIdx].find(sRejectReason) == std::string::npos)
                     {
                         _vLastOrderError[iProductIdx] = cStringStream.str();
-                        if(sRejectReason.find("Price Protection") == std::string::npos && sRejectReason.find("Market move") == std::string::npos && sRejectReason.find("last look") == std::string::npos && sRejectReason.find("Tolerance") == std::string::npos && sRejectReason.find("invalid rate") == std::string::npos && sRejectReason.find("Insufficient liquidity") == std::string::npos && sRejectReason.find("Liquidity not available") == std::string::npos) 
+                        if(sRejectReason.find("Price Protection") == std::string::npos && sRejectReason.find("Market move") == std::string::npos && sRejectReason.find("last look") == std::string::npos && sRejectReason.find("Tolerance") == std::string::npos && sRejectReason.find("invalid rate") == std::string::npos && sRejectReason.find("Insufficient liquidity") == std::string::npos && sRejectReason.find("Liquidity not available") == std::string::npos && sRejectReason.find("Stale Price") == std::string::npos) 
                         {
                             ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
                         }
@@ -2446,7 +2482,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                         }
                     }
 
-                    if(_vContractQuoteDatas[itr->first]->sProduct.find("USD") != std::string::npos)
+                    if(_vContractQuoteDatas[itr->first]->sProduct.find("USD") != std::string::npos || _bIsRecorder == true)
                     {
                         if(subQuoteItr->iBidSize > 0 && subQuoteItr->iAskSize > 0 && subQuoteItr->bStalenessErrorTriggered == false && subQuoteItr->bIgnoreVenue == false)
                         {
@@ -2475,7 +2511,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::MarketDataSnapshotFull
                     } 
                 }
 
-                if(_vContractQuoteDatas[itr->first]->sProduct.find("USD") != std::string::npos)
+                if(_vContractQuoteDatas[itr->first]->sProduct.find("USD") != std::string::npos || _bIsRecorder == true)
                 {
                     _vContractQuoteDatas[itr->first]->iPrevBidInTicks = _vContractQuoteDatas[itr->first]->iBestBidInTicks;
                     _vContractQuoteDatas[itr->first]->iPrevAskInTicks = _vContractQuoteDatas[itr->first]->iBestAskInTicks;
@@ -2749,7 +2785,7 @@ void QuickFixSchedulerFXMultiBook::onMessage(const FIX44::BusinessMessageReject&
                     if(_vLastOrderError[iProductIdx].find(sText) == std::string::npos)
                     {
                         _vLastOrderError[iProductIdx] = cStringStream.str();
-                        if(sText.find("Price Protection") == std::string::npos && sText.find("Market move") == std::string::npos && sText.find("last look") == std::string::npos && sText.find("Tolerance") == std::string::npos && sText.find("invalid rate") == std::string::npos && sText.find("Insufficient liquidity") == std::string::npos && sText.find("Liquidity not available") == std::string::npos)
+                        if(sText.find("Price Protection") == std::string::npos && sText.find("Market move") == std::string::npos && sText.find("last look") == std::string::npos && sText.find("Tolerance") == std::string::npos && sText.find("invalid rate") == std::string::npos && sText.find("Insufficient liquidity") == std::string::npos && sText.find("Liquidity not available") == std::string::npos && sText.find("Stale Price") == std::string::npos)
                         {
                             ErrorHandler::GetInstance()->newErrorMsg("0", pOrderToBeUpdated->_sAccount, pOrderToBeUpdated->sgetOrderProductName(), cStringStream.str());
                         }
