@@ -993,7 +993,7 @@ void ExecutorSim::checkOrderCross(ExecutorSimOrder& cOrder, const GridData& cDat
                 cStringStream << "Fast Liquidation Order Filled qty " << iFilledQty << " price " << iFilledPrice << " product pos " <<  _vSimPortfolios[cOrder.iPortfolioID].iPortfolioPosition;
             }
             ErrorHandler::GetInstance()->newInfoMsg("0", "ALL", _sProduct, cStringStream.str());
-       }
+        }
 
         if(_bIOC == true)
         {
@@ -1009,6 +1009,7 @@ void ExecutorSim::checkOrderCross(ExecutorSimOrder& cOrder, const GridData& cDat
                     _cLogger << "confirm IOC order delete for strategy " << cOrder.iPortfolioID << ". Retry at " << iRetrtySubmitTime << "\n";
 
                     cOrder.eState = ExecutorSimOrder::PENDING_SUBMIT_CREATION;
+                    cOrder.iPendingRemainQty = cOrder.iRemainQty;
                     cOrder.iRemainQty = 0;
                     cOrder.iPriceInTicks = 0;
                     cOrder.iConfirmTime = iRetrtySubmitTime;
