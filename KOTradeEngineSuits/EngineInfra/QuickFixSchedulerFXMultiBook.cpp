@@ -254,45 +254,9 @@ void QuickFixSchedulerFXMultiBook::checkProductsForPriceSubscription()
             if(_vContractQuoteDatas[i]->bDataSubscribed == false && _vContractQuoteDatas[i]->bDataSubscriptionPending == false)
             {
                 string sTBExchange = "NONE";
-                if(_vContractQuoteDatas[i]->sExchange == "XTMX" || _vContractQuoteDatas[i]->sExchange == "XASX" || _vContractQuoteDatas[i]->sExchange == "XOSX")
+                if(_vContractQuoteDatas[i]->sExchange == "XTMX" || _vContractQuoteDatas[i]->sExchange == "XASX" || _vContractQuoteDatas[i]->sExchange == "XOSX" || _vContractQuoteDatas[i]->sExchange == "XCME")
                 {
                     sTBExchange = "ACTIV";
-                }
-                else if(_vContractQuoteDatas[i]->sExchange == "XCME")
-                {
-/*
-                    if(_bIsRecorder == true)
-                    {
-                        if(_cSchedulerCfg.vProducts[i].find("CL") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("GC") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("6E") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("6B") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("6C") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("6A") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("6J") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("6N") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("ES") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("ZB") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("ZN") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("ZF") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("ZT") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("SR3H") != std::string::npos ||
-                           _cSchedulerCfg.vProducts[i].find("SR3M") != std::string::npos)
-                        {
-                            sTBExchange = "_CME2_";
-                        }
-                        else
-                        {
-                            sTBExchange = "_CME_";
-                        }
-                    }
-                    else
-                    {
-*/
-                        sTBExchange = "CME";
-/*
-                    }
-*/
                 }
                 else if(_vContractQuoteDatas[i]->sExchange == "XEUR")
                 {
