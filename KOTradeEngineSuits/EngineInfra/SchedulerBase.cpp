@@ -1310,6 +1310,10 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                                 {
                                     iPostFigureTimeOut = 240;
                                 }
+                                else if(sFigureName.compare("AUD_ConsumerPriceIndex_EUOpen") == 0)
+                                {
+                                    iPostFigureTimeOut = 60;
+                                }
                                 else if(sFigureName.compare("USD_ConsumerPriceIndex") == 0)
                                 {
                                     iPostFigureTimeOut = 1000;
@@ -1331,6 +1335,10 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                                 {
                                     cLimLiqFigureCallTime = (*itr)->cFigureTime - KOEpochTime(0, 1);
                                 }
+                                if(sFigureName.compare("AUD_ConsumerPriceIndex_EUOpen") == 0)
+                                {
+                                    cLimLiqFigureCallTime = (*itr)->cFigureTime - KOEpochTime(59, 0);
+                                }
                                 if(sFigureName.compare("EUR_GerHCOBManufacturingPMIPreliminar") == 0)
                                 {
                                     cLimLiqFigureCallTime = (*itr)->cFigureTime - KOEpochTime(89 * 60 + 59, 0);
@@ -1345,6 +1353,10 @@ void SchedulerBase::loadTodaysFigure(string sDate)
                                 if(sFigureName.compare("GBP_ConsumerPriceIndex") == 0)
                                 {
                                     cFastLiqFigureCallTime = (*itr)->cFigureTime - KOEpochTime(0, 1);
+                                }
+                                if(sFigureName.compare("AUD_ConsumerPriceIndex_EUOpen") == 0)
+                                {
+                                    cFastLiqFigureCallTime = (*itr)->cFigureTime - KOEpochTime(59, 0);
                                 }
                                 if(sFigureName.compare("EUR_GerHCOBManufacturingPMIPreliminar") == 0)
                                 {
